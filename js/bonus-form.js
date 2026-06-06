@@ -58,14 +58,17 @@
           row.appendChild(b);
         });
         wrap.appendChild(row);
-      } else if (q.type === "player" || q.type === "country") {
+      } else if (q.type === "player" || q.type === "country" || q.type === "custom") {
         const list = q.type === "country"
           ? (cfg.teams || []).map((t) => ({ label: t.name, sub: "" }))
-          : (cfg.players || []).map((p) => ({ label: p.name, sub: p.team }));
+          : q.type === "custom"
+            ? (q.options || []).map((o) => ({ label: o.trim(), sub: "" })).filter(o => o.label)
+            : (cfg.players || []).map((p) => ({ label: p.name, sub: p.team }));
+        const placeholder = q.type === "country" ? "Søk etter land …" : q.type === "custom" ? "Velg alternativ …" : "Søk etter spiller …";
         const ac = window.makeAutocomplete({
           value: current || "",
           options: list,
-          placeholder: q.type === "country" ? "Søk etter land …" : "Søk etter spiller …",
+          placeholder,
           onChange: readonly ? null : (v) => { set(q.id, (v || "").trim()); if (onChange) onChange(); },
           disabled: readonly
         });

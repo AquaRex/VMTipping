@@ -416,9 +416,10 @@
   }
 
   function renderQRow(q, idx) {
-    const row = el("div", { class: "cfg-q", draggable: "true" }, []);
+    const row = el("div", { class: "cfg-q" }, []);
     row.dataset.idx = idx;
-    row.appendChild(el("span", { class: "handle", title: "Dra for å flytte" }, ["⠿"]));
+    const handle = el("span", { class: "handle", title: "Dra for å flytte", draggable: "true" }, ["⠿"]);
+    row.appendChild(handle);
 
     const mid = el("div", {}, []);
     const secIn = el("input", { type: "text", value: q.section || "", placeholder: "Seksjon" }, []);
@@ -432,13 +433,18 @@
       optIn.style.marginTop = ".3rem";
       optIn.addEventListener("input", () => { q.options = optIn.value.split("|").map((s) => s.trim()).filter(Boolean); });
       mid.appendChild(optIn);
+    } else if (q.type === "custom") {
+      const optIn = el("input", { type: "text", value: (q.options || []).join(", "), placeholder: "Alternativer delt med komma, f.eks. valgA, valgB, …" }, []);
+      optIn.style.marginTop = ".3rem";
+      optIn.addEventListener("input", () => { q.options = optIn.value.split(",").map((s) => s.trim()).filter(Boolean); });
+      mid.appendChild(optIn);
     }
     row.appendChild(mid);
 
     const typeSel = el("select", {}, []);
-    [["text", "Fritekst"], ["duel", "Duell"], ["yesno", "Ja/Nei"], ["player", "Spiller (søk)"], ["country", "Land (søk)"]].forEach(([v, l]) => typeSel.appendChild(new Option(l, v)));
+    [["text", "Fritekst"], ["duel", "Duell"], ["yesno", "Ja/Nei"], ["player", "Spiller (søk)"], ["country", "Land (søk)"], ["custom", "Egendefinert (søk)"]].forEach(([v, l]) => typeSel.appendChild(new Option(l, v)));
     typeSel.value = q.type;
-    typeSel.addEventListener("change", () => { q.type = typeSel.value; if (q.type === "duel" && !q.options) q.options = ["A", "B"]; renderBonusCfg(); });
+    typeSel.addEventListener("change", () => { q.type = typeSel.value; if (q.type === "duel" && !q.options) q.options = ["A", "B"]; if (q.type === "custom" && !q.options) q.options = []; renderBonusCfg(); });
     row.appendChild(typeSel);
 
     const pts = el("input", { type: "number", min: "0", class: "pts-in", value: q.points }, []);
@@ -449,9 +455,9 @@
     del.addEventListener("click", () => { cfg.bonus.questions.splice(idx, 1); renderBonusCfg(); });
     row.appendChild(del);
 
-    // drag handlers
-    row.addEventListener("dragstart", () => { dragIdx = idx; row.classList.add("dragging"); });
-    row.addEventListener("dragend", () => { dragIdx = null; row.classList.remove("dragging"); document.querySelectorAll(".cfg-q").forEach((r) => r.classList.remove("dragover")); });
+    // drag initiated only from handle; row is just a drop target
+    handle.addEventListener("dragstart", () => { dragIdx = idx; row.classList.add("dragging"); });
+    handle.addEventListener("dragend", () => { dragIdx = null; row.classList.remove("dragging"); document.querySelectorAll(".cfg-q").forEach((r) => r.classList.remove("dragover")); });
     row.addEventListener("dragover", (e) => { e.preventDefault(); row.classList.add("dragover"); });
     row.addEventListener("dragleave", () => row.classList.remove("dragover"));
     row.addEventListener("drop", (e) => {
