@@ -64,7 +64,6 @@
     renderBoard();
     renderEntries();
     renderFasit();
-    renderFasitBonus();
     renderBonusCfg();
     renderSetup();
   }
@@ -237,12 +236,17 @@
   /* ====================================================================
    *  TAB: Fasit (answer key)
    * ==================================================================*/
+  /* ====================================================================
+   *  TAB: Fasit — sub-tabs: Tippeskjema | Bonusspørsmål
+   * ==================================================================*/
   function renderFasit() {
     const pane = document.getElementById("tab-fasit");
     pane.innerHTML = "";
+
+    // ---- header + save buttons ----
     const intro = el("div", { class: "card" }, []);
-    intro.appendChild(el("h2", {}, ["Fasit (offisielle resultater)"]));
-    intro.appendChild(el("p", { class: "sub" }, ["Fyll inn fasiten på nøyaktig samme måte som deltakerne tipper: skriv resultater i gruppespillet (tabellen og sluttspillet fylles ut automatisk), klikk vinnere i sluttspillet, og svar på bonusspørsmålene. Trykk «Lagre fasit», og deretter «Rett alle» for å oppdatere alle poeng."]));
+    intro.appendChild(el("h2", {}, ["Fasit"]));
+    intro.appendChild(el("p", { class: "sub" }, ["Fyll inn offisielle resultater. Trykk «Lagre fasit» og deretter «Rett alle» for å oppdatere poengsummer."]));
     const saveRow = el("div", { class: "btn-row" }, []);
     const saveBtn = el("button", { class: "btn btn-primary" }, ["💾 Lagre fasit"]);
     saveBtn.addEventListener("click", async () => { await saveAnswerKey(); App.toast("Fasit lagret.", "success"); });
@@ -253,50 +257,59 @@
     intro.appendChild(saveRow);
     pane.appendChild(intro);
 
-    // ---- Schema fasit (same UI as the player page) ----
+    // ---- inner sub-tabs ----
+    const subNav = el("div", { class: "nav-links", style: "margin-bottom:1rem" }, []);
+    const tabSchema  = el("a", { href: "#", class: "active" }, ["📋 Tippeskjema"]);
+    const tabBonus   = el("a", { href: "#" }, ["🎯 Bonusspørsmål"]);
+    subNav.appendChild(tabSchema);
+    subNav.appendChild(tabBonus);
+    pane.appendChild(subNav);
+
+    const panSchema = el("div", {}, []);
+    const panBonus  = el("div", { class: "hidden" }, []);
+    pane.appendChild(panSchema);
+    pane.appendChild(panBonus);
+
+    function switchSub(which) {
+      tabSchema.classList.toggle("active", which === "schema");
+      tabBonus.classList.toggle("active",  which === "bonus");
+      panSchema.classList.toggle("hidden", which !== "schema");
+      panBonus.classList.toggle("hidden",  which !== "bonus");
+    }
+    tabSchema.addEventListener("click", (e) => { e.preventDefault(); switchSub("schema"); });
+    tabBonus.addEventListener("click",  (e) => { e.preventDefault(); switchSub("bonus"); });
+
+    // ---- Tippeskjema panel ----
+    const csvZone = el("div", {}, []);
+    panSchema.appendChild(csvZone);
+
     const layout = el("div", { class: "layout" }, []);
     const L = el("div", { class: "col-left" }, []);
     const M = el("div", { class: "col-mid" }, []);
     const R = el("div", { class: "col-right" }, []);
     layout.appendChild(L); layout.appendChild(M); layout.appendChild(R);
-    pane.appendChild(layout);
+    panSchema.appendChild(layout);
 
     const store = {
       getMatch: (id) => answerKey.matches[id],
-      setMatch: (id, h, a) => { if (h === "" && a === "") delete answerKey.matches[id]; else answerKey.matches[id] = { h, a }; },
+      setMatch: (id, h, a) => { if (h === "" && a === "") delete answerKey.matches[id]; else answerKey.matches[id] = { h: +h, a: +a }; },
       getWinner: (mid) => answerKey.bracketWinners[mid] || "",
       setWinner: (mid, team) => { if (!team) delete answerKey.bracketWinners[mid]; else answerKey.bracketWinners[mid] = team; },
       setRounds: (map) => { answerKey.knockout = map; }
     };
-    SchemaForm.mount({ cfg, store, left: L, mid: M, right: R });
-  }
+    const form = SchemaForm.mount({ cfg, store, left: L, mid: M, right: R });
 
-  /* ====================================================================
-   *  TAB: Fasit – Bonusspørsmål  (separate tab, same UI as bonus.html)
-   * ==================================================================*/
-  function renderFasitBonus() {
-    const pane = document.getElementById("tab-fasitbonus");
-    pane.innerHTML = "";
+    CsvImport.buildDropZone(csvZone, cfg, (matchScores, bracketWinners) => {
+      Object.entries(matchScores).forEach(([id, { h, a }]) => store.setMatch(+id, String(h), String(a)));
+      Object.entries(bracketWinners).forEach(([mid, team]) => store.setWinner(+mid, team));
+      form.reloadInputs();
+      form.refresh();
+    });
 
-    const intro = el("div", { class: "card" }, []);
-    intro.appendChild(el("h2", {}, ["Fasit – Bonusspørsmål"]));
-    intro.appendChild(el("p", { class: "sub" }, [
-      "Fyll inn fasiten for bonusspørsmålene. Bruker samme visning som deltakernes side. " +
-      "Trykk «Lagre fasit» og deretter «Rett alle» for å oppdatere alles poeng."
-    ]));
-    const saveRow = el("div", { class: "btn-row" }, []);
-    const saveBtn = el("button", { class: "btn btn-primary" }, ["💾 Lagre fasit"]);
-    saveBtn.addEventListener("click", async () => { await saveAnswerKey(); App.toast("Fasit lagret.", "success"); });
-    saveRow.appendChild(saveBtn);
-    const recBtn = el("button", { class: "btn" }, ["↻ Lagre + rett alle"]);
-    recBtn.addEventListener("click", async () => { await saveAnswerKey(); await recalcAll(); });
-    saveRow.appendChild(recBtn);
-    intro.appendChild(saveRow);
-    pane.appendChild(intro);
-
-    const content = el("div", {}, []);
-    pane.appendChild(content);
-    BonusForm.render(content, {
+    // ---- Bonusspørsmål panel (constrained width like bonus.html) ----
+    const bonusWrap = el("div", { class: "wrap", style: "padding-top:0" }, []);
+    panBonus.appendChild(bonusWrap);
+    BonusForm.render(bonusWrap, {
       cfg,
       get: (id) => answerKey.bonus[id],
       set: (id, v) => { if (v) answerKey.bonus[id] = v; else delete answerKey.bonus[id]; },
