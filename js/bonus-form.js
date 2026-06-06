@@ -58,14 +58,24 @@
           row.appendChild(b);
         });
         wrap.appendChild(row);
-      } else if (q.type === "player" || q.type === "country" || q.type === "custom") {
+      } else if (q.type === "custombuttons") {
+        const row = el("div", { class: "duel" }, []);
+        (q.options || []).forEach((opt) => {
+          const b = el("div", { class: "opt" + (current === opt ? " sel" : "") + (readonly ? " readonly" : "") }, [opt]);
+          if (!readonly) b.addEventListener("click", () => { set(q.id, current === opt ? "" : opt); rerender(); });
+          row.appendChild(b);
+        });
+        wrap.appendChild(row);
+      } else if (q.type === "player" || q.type === "country" || q.type === "custom" || q.type === "customselect") {
+        const isSelect = q.type === "customselect";
         const list = q.type === "country"
           ? (cfg.teams || []).map((t) => ({ label: t.name, sub: "" }))
-          : q.type === "custom"
+          : (q.type === "custom" || isSelect)
             ? (q.options || []).map((o) => ({ label: o.trim(), sub: "" })).filter(o => o.label)
             : (cfg.players || []).map((p) => ({ label: p.name, sub: p.team }));
-        const placeholder = q.type === "country" ? "Søk etter land …" : q.type === "custom" ? "Velg alternativ …" : "Søk etter spiller …";
-        const ac = window.makeAutocomplete({
+        const placeholder = q.type === "country" ? "Søk etter land …" : isSelect ? "Velg alternativ …" : q.type === "custom" ? "Velg alternativ …" : "Søk etter spiller …";
+        const maker = isSelect ? window.makeSelectDropdown : window.makeAutocomplete;
+        const ac = maker({
           value: current || "",
           options: list,
           placeholder,

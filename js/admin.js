@@ -433,7 +433,7 @@
       optIn.style.marginTop = ".3rem";
       optIn.addEventListener("input", () => { q.options = optIn.value.split("|").map((s) => s.trim()).filter(Boolean); });
       mid.appendChild(optIn);
-    } else if (q.type === "custom") {
+    } else if (q.type === "custom" || q.type === "customselect" || q.type === "custombuttons") {
       const optIn = el("input", { type: "text", value: (q.options || []).join(", "), placeholder: "Alternativer delt med komma, f.eks. valgA, valgB, …" }, []);
       optIn.style.marginTop = ".3rem";
       optIn.addEventListener("input", () => { q.options = optIn.value.split(",").map((s) => s.trim()).filter(Boolean); });
@@ -442,9 +442,9 @@
     row.appendChild(mid);
 
     const typeSel = el("select", {}, []);
-    [["text", "Fritekst"], ["duel", "Duell"], ["yesno", "Ja/Nei"], ["player", "Spiller (søk)"], ["country", "Land (søk)"], ["custom", "Egendefinert (søk)"]].forEach(([v, l]) => typeSel.appendChild(new Option(l, v)));
+    [["text", "Fritekst"], ["duel", "Duell"], ["yesno", "Ja/Nei"], ["player", "Spiller (søk)"], ["country", "Land (søk)"], ["custom", "Egendefinert (søk)"], ["customselect", "Egendefinert"], ["custombuttons", "Egendefinert (knapper)"]].forEach(([v, l]) => typeSel.appendChild(new Option(l, v)));
     typeSel.value = q.type;
-    typeSel.addEventListener("change", () => { q.type = typeSel.value; if (q.type === "duel" && !q.options) q.options = ["A", "B"]; if (q.type === "custom" && !q.options) q.options = []; renderBonusCfg(); });
+    typeSel.addEventListener("change", () => { q.type = typeSel.value; if (q.type === "duel" && !q.options) q.options = ["A", "B"]; if (["custom", "customselect", "custombuttons"].includes(q.type) && !q.options) q.options = []; renderBonusCfg(); });
     row.appendChild(typeSel);
 
     const pts = el("input", { type: "number", min: "0", class: "pts-in", value: q.points }, []);
