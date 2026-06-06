@@ -254,6 +254,14 @@
     const recBtn = el("button", { class: "btn" }, ["↻ Lagre + rett alle"]);
     recBtn.addEventListener("click", async () => { await saveAnswerKey(); await recalcAll(); });
     saveRow.appendChild(recBtn);
+    const resetBtn = el("button", { class: "btn btn-ghost" }, ["Nullstill fasit"]);
+    resetBtn.addEventListener("click", () => {
+      if (!confirm("Nullstille hele fasiten? Dette kan ikke angres.")) return;
+      answerKey.matches = {}; answerKey.bracketWinners = {}; answerKey.knockout = {}; answerKey.bonus = {};
+      renderFasit();
+      App.toast("Fasit nullstilt.", "success");
+    });
+    saveRow.appendChild(resetBtn);
     intro.appendChild(saveRow);
     pane.appendChild(intro);
 

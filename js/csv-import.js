@@ -17,6 +17,9 @@
   function parseCSV(text) {
     const rows = [];
     const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    // detect delimiter: count commas vs semicolons in the first non-empty line
+    const firstLine = lines.find(l => l.trim()) || '';
+    const sep = (firstLine.split(';').length > firstLine.split(',').length) ? ';' : ',';
     for (const line of lines) {
       if (!line.trim()) continue;
       const row = [];
@@ -26,7 +29,7 @@
         if (c === '"') {
           if (inQ && line[i + 1] === '"') { field += '"'; i++; }
           else inQ = !inQ;
-        } else if (c === ',' && !inQ) {
+        } else if (c === sep && !inQ) {
           row.push(field.trim()); field = '';
         } else {
           field += c;
