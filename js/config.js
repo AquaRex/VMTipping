@@ -196,7 +196,7 @@ window.DEFAULT_CONFIG = {
       73: { date: "29. jun", time: "09:00", top: { seed: "2A" }, bot: { seed: "2B" }, next: 90, nextSlot: "top" },
       75: { date: "30. jun", time: "03:00", top: { seed: "1F" }, bot: { seed: "2C" }, next: 90, nextSlot: "bot" },
       83: { date: "3. jul",  time: "01:00", top: { seed: "2K" }, bot: { seed: "2L" }, next: 93, nextSlot: "top" },
-      84: { date: "3. jul",  time: "09:00", top: { seed: "1H" }, bot: { seed: "2G" }, next: 93, nextSlot: "bot" },
+      84: { date: "3. jul",  time: "09:00", top: { seed: "1H" }, bot: { seed: "2J" }, next: 93, nextSlot: "bot" },
       81: { date: "2. jul",  time: "02:00", top: { seed: "1D" }, bot: { seed: "3. plass B/E/F/I/J" }, next: 94, nextSlot: "top" },
       82: { date: "1. jul",  time: "22:00", top: { seed: "1G" }, bot: { seed: "3. plass A/E/H/I/J" }, next: 94, nextSlot: "bot" },
       76: { date: "30. jun", time: "07:00", top: { seed: "1C" }, bot: { seed: "2F" }, next: 91, nextSlot: "top" },
@@ -204,7 +204,7 @@ window.DEFAULT_CONFIG = {
       79: { date: "1. jul",  time: "03:00", top: { seed: "1A" }, bot: { seed: "3. plass C/E/F/H/I" }, next: 92, nextSlot: "top" },
       80: { date: "2. jul",  time: "06:00", top: { seed: "1L" }, bot: { seed: "3. plass E/H/I/J/K" }, next: 92, nextSlot: "bot" },
       86: { date: "4. jul",  time: "00:00", top: { seed: "1J" }, bot: { seed: "2H" }, next: 95, nextSlot: "top" },
-      88: { date: "3. jul",  time: "20:00", top: { seed: "2D" }, bot: { seed: "2J" }, next: 95, nextSlot: "bot" },
+      88: { date: "3. jul",  time: "20:00", top: { seed: "2D" }, bot: { seed: "2G" }, next: 95, nextSlot: "bot" },
       85: { date: "3. jul",  time: "05:00", top: { seed: "1B" }, bot: { seed: "3. plass E/F/G/I/J" }, next: 96, nextSlot: "top" },
       87: { date: "4. jul",  time: "03:30", top: { seed: "1K" }, bot: { seed: "3. plass D/E/I/J/L" }, next: 96, nextSlot: "bot" },
       // Round of 16 (8-delsfinale)

@@ -17,6 +17,7 @@
     const MAX_GOALS = 30;
     const clamp = (n) => Math.max(0, Math.min(MAX_GOALS, n));
     const scoreInputs = [];
+    const matchInputMap = {};   // matchId → { h: inputEl, a: inputEl }
     const B = cfg.knockoutBracket;
     let seedResolved = {};
 
@@ -31,17 +32,30 @@
     function renderMatchRow(m) {
       const saved = store.getMatch(m.id) || {};
       const row = el("div", { class: "ml-row" }, []);
-      row.appendChild(el("div", { class: "ml-when" }, [
-        el("span", { class: "ml-no" }, [String(m.id)]),
-        `${m.day} ${m.date} · ${m.time} · Gr. ${m.group}`
-      ]));
-      row.appendChild(el("div", { class: "ml-home" }, [el("span", { class: "nm" }, [m.home]), flagNode(m.home)]));
+      row.appendChild(el("div", { class: "ml-when" }, [`${m.day} ${m.date} · ${m.time} · Gr. ${m.group}`]));
+      row.appendChild(el("span", { class: "ml-no" }, [String(m.id)]));
+      const homeDiv = el("div", { class: "ml-home" }, [el("span", { class: "nm" }, [m.home]), flagNode(m.home)]);
+      const awayDiv = el("div", { class: "ml-away" }, [flagNode(m.away), el("span", { class: "nm" }, [m.away])]);
       const hIn = makeScoreInput(saved.h);
       const aIn = makeScoreInput(saved.a);
-      const commit = () => { store.setMatch(m.id, hIn.value, aIn.value); updateDerived(); if (onChange) onChange(); };
+      matchInputMap[m.id] = { h: hIn, a: aIn };
+      const updateWin = () => {
+        const h = parseInt(hIn.value, 10), a = parseInt(aIn.value, 10);
+        const has = !isNaN(h) && !isNaN(a);
+        homeDiv.classList.toggle("win",  has && h > a);
+        homeDiv.classList.toggle("loss", has && h < a);
+        homeDiv.classList.toggle("draw", has && h === a);
+        awayDiv.classList.toggle("win",  has && a > h);
+        awayDiv.classList.toggle("loss", has && a < h);
+        awayDiv.classList.toggle("draw", has && h === a);
+      };
+      const commit = () => { store.setMatch(m.id, hIn.value, aIn.value); updateWin(); updateDerived(); if (onChange) onChange(); };
       hIn._onCommit = commit; aIn._onCommit = commit;
+      hIn._updateWin = updateWin; aIn._updateWin = updateWin;
+      updateWin();
+      row.appendChild(homeDiv);
       row.appendChild(el("div", { class: "ml-score" }, [hIn, el("span", { class: "dash" }, ["–"]), aIn]));
-      row.appendChild(el("div", { class: "ml-away" }, [flagNode(m.away), el("span", { class: "nm" }, [m.away])]));
+      row.appendChild(awayDiv);
       return row;
     }
 
@@ -111,71 +125,18 @@
     right.appendChild(koWrap);
     enableDragScroll(bracketEl);
 
-    const cmp = (a, b) => (b.pts - a.pts) || (b.gd - a.gd) || (b.gf - a.gf) || (a.idx - b.idx);
+    const cmp = WC.cmp;
 
+    // Standings + seeding are computed by the shared, FIFA-accurate engine in
+    // tournament.js (head-to-head tie-breaks + official Annexe C third-place
+    // assignment). Here we only marshal the saved scores into a results map.
     function computeStandings() {
       const results = {};
       cfg.matches.forEach((m) => {
         const p = store.getMatch(m.id);
         if (p && p.h !== "" && p.a !== "" && p.h != null && p.a != null) results[m.id] = { h: +p.h, a: +p.a };
       });
-      const standings = {}, complete = {};
-      Object.keys(cfg.groups).forEach((g) => {
-        const teams = cfg.groups[g];
-        const st = {}; teams.forEach((t, i) => st[t] = { team: t, group: g, idx: i, pl: 0, w: 0, l: 0, d: 0, gf: 0, ga: 0, gd: 0, pts: 0 });
-        let allDone = true;
-        cfg.matches.filter((m) => m.group === g).forEach((m) => {
-          const r = results[m.id];
-          if (!r) { allDone = false; return; }
-          const H = st[m.home], A = st[m.away];
-          H.pl++; A.pl++; H.gf += r.h; H.ga += r.a; A.gf += r.a; A.ga += r.h;
-          if (r.h > r.a) { H.w++; A.l++; H.pts += 3; }
-          else if (r.h < r.a) { A.w++; H.l++; A.pts += 3; }
-          else { H.d++; A.d++; H.pts++; A.pts++; }
-        });
-        teams.forEach((t) => { st[t].gd = st[t].gf - st[t].ga; });
-        standings[g] = teams.map((t) => st[t]).sort(cmp);
-        complete[g] = allDone;
-      });
-      return { standings, complete };
-    }
-
-    function buildSeeds(standings, complete) {
-      const res = {};
-      Object.keys(cfg.groups).forEach((g) => {
-        if (complete[g]) { res["1" + g] = standings[g][0].team; res["2" + g] = standings[g][1].team; }
-      });
-      if (Object.values(complete).every(Boolean)) {
-        const qualifiers = Object.keys(cfg.groups).map((g) => standings[g][2]).sort(cmp).slice(0, 8);
-        const qGroups = qualifiers.map((q) => q.group);
-        const teamByGroup = {}; qualifiers.forEach((q) => teamByGroup[q.group] = q.team);
-        const slots = [];
-        B.rounds[0].matchIds.forEach((mid_) => ["top", "bot"].forEach((side) => {
-          const s = B.matches[mid_][side];
-          if (s.seed !== undefined && /^3\. plass /.test(s.seed)) {
-            slots.push({ seed: s.seed, allowed: s.seed.replace("3. plass ", "").split("/").map((x) => x.trim()) });
-          }
-        }));
-        const groupToSlot = {};
-        const trySlot = (si, visited) => {
-          for (const g of qGroups) {
-            if (!slots[si].allowed.includes(g) || visited.has(g)) continue;
-            visited.add(g);
-            if (groupToSlot[g] === undefined || trySlot(groupToSlot[g], visited)) { groupToSlot[g] = si; return true; }
-          }
-          return false;
-        };
-        for (let si = 0; si < slots.length; si++) trySlot(si, new Set());
-        Object.keys(groupToSlot).forEach((g) => { res[slots[groupToSlot[g]].seed] = teamByGroup[g]; });
-      }
-      // Safety: a team must not appear in two bracket slots.
-      // If the config has a duplicate seed (shouldn't happen, but guards against it),
-      // remove all but the first occurrence so the same team can't occupy two R32 spots.
-      const seenTeams = new Set();
-      Object.keys(res).forEach((k) => {
-        if (seenTeams.has(res[k])) delete res[k]; else seenTeams.add(res[k]);
-      });
-      return res;
+      return WC.computeStandings(cfg, results);
     }
 
     function teamOf(mid_, side) {
@@ -210,7 +171,7 @@
     function renderBox(mid_) {
       const m = B.matches[mid_];
       const box = el("div", { class: "bmatch" }, []);
-      box.appendChild(el("div", { class: "bmeta" }, [`${m.title ? m.title + " · " : ""}${m.date} · ${m.time}`]));
+      box.appendChild(el("div", { class: "bmeta" }, [`M${mid_}${m.title ? " · " + m.title : ""} · ${m.date} · ${m.time}`]));
       const inner = el("div", { class: "bbox" + (m.title ? " final" : "") }, []);
       inner.appendChild(renderSlot(mid_, "top"));
       inner.appendChild(renderSlot(mid_, "bot"));
@@ -232,10 +193,20 @@
       chk.addEventListener("click", () => {
         const pick = isWinner ? "" : team;
         if (pick) {
-          // A team can only advance through ONE path. Clear any other match where
-          // this same team is stored as winner before setting the new one.
+          // Only clear this team from matches that are NOT predecessors of mid_.
+          // (Predecessors are matches whose winner feeds – directly or transitively –
+          // into mid_, so it is correct for the same team to be stored there.)
+          const preds = new Set();
+          const walkPreds = (id) => {
+            ["top", "bot"].forEach((s) => {
+              const sl = B.matches[id] && B.matches[id][s];
+              if (sl && sl.from !== undefined) { preds.add(sl.from); walkPreds(sl.from); }
+            });
+          };
+          walkPreds(mid_);
           B.rounds.forEach((r) => r.matchIds.forEach((id) => {
-            if (id !== mid_ && store.getWinner(id) === pick) store.setWinner(id, "");
+            if (id !== mid_ && !preds.has(id) && store.getWinner(id) === pick)
+              store.setWinner(id, "");
           }));
         }
         store.setWinner(mid_, pick);
@@ -275,14 +246,14 @@
       const tbl = el("table", { class: "stbl" + (showGroup ? " third-tbl" : "") }, []);
       tbl.innerHTML =
         `<thead><tr><th class="gname">${App.escape(title)}</th>` +
-        `<th title="Spilte">S</th><th title="Vinn">V</th><th title="Tap">T</th><th title="Uavgjort">U</th><th>Mål</th><th>P</th></tr></thead>`;
+        `<th title="Spilte">S</th><th title="Vinn">V</th><th title="Uavgjort">U</th><th title="Tap">T</th><th>Mål</th><th>P</th></tr></thead>`;
       const tb = el("tbody", {}, []);
       rows.forEach((r, i) => {
         const tr = el("tr", { class: i < advCount ? "adv" : "out" }, []);
         const nameCell = `${App.flagImg(r.team, "w20")}<span>${App.escape(r.team)}${showGroup ? ` <span class="muted">(${r.group})</span>` : ""}</span>`;
         tr.innerHTML =
           `<td class="tname">${nameCell}</td>` +
-          `<td>${r.pl}</td><td>${r.w}</td><td>${r.l}</td><td>${r.d}</td>` +
+          `<td>${r.pl}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td>` +
           `<td class="goals">${r.gf} - ${r.ga}</td><td class="pts">${r.pts}</td>`;
         tb.appendChild(tr);
       });
@@ -306,13 +277,24 @@
 
     function updateDerived() {
       const { standings, complete } = computeStandings();
-      seedResolved = buildSeeds(standings, complete);
+      seedResolved = WC.buildSeeds(cfg, standings, complete);
       renderStandings(standings);
       renderBracket();
     }
 
+    function reloadInputs() {
+      cfg.matches.forEach((m) => {
+        const saved = store.getMatch(m.id) || {};
+        const ins = matchInputMap[m.id];
+        if (!ins) return;
+        ins.h.value = saved.h != null ? String(saved.h) : "";
+        ins.a.value = saved.a != null ? String(saved.a) : "";
+        if (ins.h._updateWin) ins.h._updateWin();
+      });
+    }
+
     updateDerived();
-    return { refresh: updateDerived };
+    return { refresh: updateDerived, reloadInputs };
   }
 
   window.SchemaForm = { mount };

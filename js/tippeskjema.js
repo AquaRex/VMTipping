@@ -29,7 +29,19 @@
     setRounds: (map) => Object.keys(map).forEach((k) => Draft.setKnockout(k, map[k]))
   };
 
-  SchemaForm.mount({ cfg, store, left: colLeft, mid: colMid, right: colRight, onChange: updateProgress });
+  const form = SchemaForm.mount({ cfg, store, left: colLeft, mid: colMid, right: colRight, onChange: updateProgress });
+
+  CsvImport.buildDropZone(
+    document.getElementById("csv-import-zone"),
+    cfg,
+    (matchScores, bracketWinners) => {
+      Object.entries(matchScores).forEach(([id, { h, a }]) => Draft.setMatch(+id, String(h), String(a)));
+      Object.entries(bracketWinners).forEach(([mid, team]) => Draft.setWinner(+mid, team));
+      form.reloadInputs();
+      form.refresh();
+      updateProgress();
+    }
+  );
 
   function updateProgress() {
     const done = Object.keys(Draft.matches).filter((id) => {
