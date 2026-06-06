@@ -380,17 +380,27 @@
     }
 
     function deriveRounds() {
-      const ids = (key) => B.rounds.find((r) => r.key === key).matchIds;
-      const r32 = [];
-      ids("r32").forEach((id) => { const a = teamOf(id, "top"), b = teamOf(id, "bot"); if (a) r32.push(a); if (b) r32.push(b); });
-      store.setRounds({
-        r32,
-        r16: ids("r32").map(winnerOf).filter(Boolean),
-        qf: ids("r16").map(winnerOf).filter(Boolean),
-        sf: ids("qf").map(winnerOf).filter(Boolean),
-        final: ids("sf").map(winnerOf).filter(Boolean),
-        winner: [winnerOf(104)].filter(Boolean)
+      const roundMap = {};
+      B.rounds.forEach((round, i) => {
+        if (i === 0) {
+          // First round: both teams of each match enter
+          const teams = [];
+          round.matchIds.forEach((id) => {
+            const a = teamOf(id, "top"), b = teamOf(id, "bot");
+            if (a) teams.push(a); if (b) teams.push(b);
+          });
+          roundMap[round.key] = teams;
+        } else {
+          // Subsequent rounds: winners of the previous round
+          const prev = B.rounds[i - 1];
+          roundMap[round.key] = prev.matchIds.map(winnerOf).filter(Boolean);
+        }
       });
+      // winner = winner of the final match
+      const finalRound = B.rounds[B.rounds.length - 1];
+      const finalId = finalRound && finalRound.matchIds[0];
+      roundMap.winner = finalId ? [winnerOf(finalId)].filter(Boolean) : [];
+      store.setRounds(roundMap);
     }
 
     function updateDerived() {

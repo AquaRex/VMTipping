@@ -122,9 +122,8 @@
    *  are absent from this table.)
    * =======================================================================*/
   const COL_ORDER = ["A", "B", "D", "E", "G", "I", "K", "L"];
-  // R32 match whose lower slot is the third-place opponent of each group winner.
-  const COL_MATCH = { A: 79, B: 85, D: 81, E: 74, G: 82, I: 77, K: 87, L: 80 };
   // Legal third-place groups per winner column (FIFA Regulations art. 12.6).
+  // (Used by validate(); the live resolver derives slots from the bracket.)
   const ALLOWED = {
     A: "CEFHI", B: "EFGIJ", D: "BEFIJ", E: "ABCDF",
     G: "AEHIJ", I: "CDFGH", K: "DEIJL", L: "EHIJK"
@@ -187,25 +186,53 @@
   const LOOKUP = {};
   ANNEXE_C.forEach((row) => { LOOKUP[row.split("").sort().join("")] = row; });
 
-  /* ---- Annexe C resolver (standard WC26 12-group / 8-thirds format) -------- */
-  function annexeCSeeds(cfg, standings) {
+  /* ---- generic helpers ----------------------------------------------------
+   * A third-place SLOT is a first-round bracket position whose seed is an
+   * allowed-set string ("3. plass A/B/C" or "3rd Group A/B/C"). Each such slot
+   * sits opposite a group-winner seed ("1X"); that X is the slot's COLUMN.
+   * The lookup tables are keyed by the sorted set of qualifying third groups,
+   * with the value giving, per column (in a declared column order), which
+   * third-placed group fills that column's slot. This works for ANY bracket
+   * shape — WC (8 columns), Euro (4 columns), or a future format.            */
+  const isThirdSet = (seed) => typeof seed === "string" && /^(3\.?\s*plass|3rd)\b/i.test(seed);
+
+  // column letter (facing winner group)  ->  the slot's seed string
+  function columnSlots(cfg) {
+    const B = cfg.knockoutBracket;
+    const map = {};
+    (B.rounds[0] ? B.rounds[0].matchIds : []).forEach((mid) => {
+      const m = B.matches[mid];
+      if (!m) return;
+      ["top", "bot"].forEach((side) => {
+        const s = m[side];
+        if (!s || !isThirdSet(s.seed)) return;
+        const sib = side === "top" ? m.bot : m.top;
+        const wm = sib && typeof sib.seed === "string" && /^1\s*([A-Z0-9]+)$/i.exec(sib.seed.trim());
+        if (wm) map[wm[1].toUpperCase()] = s.seed;
+      });
+    });
+    return map;
+  }
+
+  /* ---- table resolver: works for any column set / table -------------------- */
+  function tableSeeds(cfg, standings, columns, table) {
     const out = {};
     const groups = Object.keys(cfg.groups);
-    if (groups.length !== 12) return out;
     const thirds = groups.map((g) => standings[g] && standings[g][2]).filter(Boolean);
-    if (thirds.length !== 12) return out;
-    const best8 = thirds.slice().sort(cmp).slice(0, 8);
-    const key = best8.map((t) => t.group).sort().join("");
-    const row = LOOKUP[key];
+    if (thirds.length !== groups.length) return out;       // not all groups ranked
+    const slotCount = columns.length;
+    const best = thirds.slice().sort(cmp).slice(0, slotCount);
+    const key = best.map((t) => t.group).sort().join("");
+    const row = table[key];
     if (!row) return out;
-    const B = cfg.knockoutBracket;
-    COL_ORDER.forEach((winG, i) => {
+    const colMap = columnSlots(cfg);
+    for (let i = 0; i < slotCount; i++) {
+      const winnerG = columns[i];
       const thirdG = row[i];
-      const m = B.matches[COL_MATCH[winG]];
-      if (!m || !m.bot || m.bot.seed === undefined) return;
+      const seed = colMap[winnerG];
       const third = standings[thirdG] && standings[thirdG][2];
-      if (third) out[m.bot.seed] = third.team;
-    });
+      if (seed && third) out[seed] = third.team;
+    }
     return out;
   }
 
@@ -213,16 +240,19 @@
   function bipartiteSeeds(cfg, standings) {
     const B = cfg.knockoutBracket;
     const res = {};
-    const qualifiers = Object.keys(cfg.groups).map((g) => standings[g][2]).filter(Boolean).sort(cmp).slice(0, 8);
-    const qGroups = qualifiers.map((q) => q.group);
-    const teamByGroup = {}; qualifiers.forEach((q) => (teamByGroup[q.group] = q.team));
+    // Number of third-place slots in the bracket = number of thirds that qualify.
     const slots = [];
     B.rounds[0].matchIds.forEach((mid) => ["top", "bot"].forEach((side) => {
       const s = B.matches[mid][side];
-      if (s.seed !== undefined && /^3\. plass /.test(s.seed)) {
-        slots.push({ seed: s.seed, allowed: s.seed.replace("3. plass ", "").split("/").map((x) => x.trim()) });
+      if (s && isThirdSet(s.seed)) {
+        const allowed = s.seed.replace(/^(3\.?\s*plass|3rd\s+group)\s*/i, "").split("/").map((x) => x.trim()).filter(Boolean);
+        slots.push({ seed: s.seed, allowed });
       }
     }));
+    const need = slots.length || 8;
+    const qualifiers = Object.keys(cfg.groups).map((g) => standings[g][2]).filter(Boolean).sort(cmp).slice(0, need);
+    const qGroups = qualifiers.map((q) => q.group);
+    const teamByGroup = {}; qualifiers.forEach((q) => (teamByGroup[q.group] = q.team));
     const groupToSlot = {};
     const trySlot = (si, visited) => {
       for (const g of qGroups) {
@@ -239,8 +269,19 @@
 
   function thirdPlaceSeeds(cfg, standings, complete) {
     if (!Object.values(complete).every(Boolean)) return {};
-    const viaTable = annexeCSeeds(cfg, standings);
-    if (Object.keys(viaTable).length) return viaTable;
+    // 1. Hybrid: an explicit table in the config (any format) takes priority.
+    if (cfg.thirdPlaceTable && cfg.thirdPlaceColumns) {
+      const cols = cfg.thirdPlaceColumns.split("");
+      const via = tableSeeds(cfg, standings, cols, cfg.thirdPlaceTable);
+      if (Object.keys(via).length) return via;
+    }
+    // 2. Built-in FIFA Annexe C for the standard 12-group / 8-thirds format.
+    if (Object.keys(cfg.groups).length === 12) {
+      const via = tableSeeds(cfg, standings, COL_ORDER, LOOKUP);
+      if (Object.keys(via).length) return via;
+    }
+    // 3. Generic constraint solver (works for any format, legal but maybe not
+    //    the officially-published assignment).
     return bipartiteSeeds(cfg, standings);
   }
 
@@ -253,6 +294,14 @@
     // Safety: never let the same team occupy two bracket slots.
     const seen = new Set();
     Object.keys(res).forEach((k) => { if (seen.has(res[k])) delete res[k]; else seen.add(res[k]); });
+    // Direct per-group third-place seeds ("3C" = third-placed team of group C).
+    // Added AFTER the dedupe so they never trigger deletion of real slots; used
+    // by configs whose bracket references a specific group's third place.
+    Object.keys(cfg.groups).forEach((g) => {
+      if (complete[g] && standings[g][2] && res["3" + g] === undefined) {
+        res["3" + g] = standings[g][2].team;
+      }
+    });
     return res;
   }
 

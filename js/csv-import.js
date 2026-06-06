@@ -43,18 +43,32 @@
 
   const norm = (s) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
 
-  /* ---- group stage: find rows where col[0] is 1–72 ---------------------- */
+  /* ---- group stage: find rows where col[0] is a valid match ID ---------- */
+  /*
+   * Different tournament CSVs put scores at different column offsets.
+   * Strategy: once we find the match ID in col[0], scan cols 1–9 for the
+   * first pair of adjacent integers (≥ 0) — those are home/away scores.
+   * This handles WC2026 (scores at col 5,6), Euro2024 (scores at col 5,7 or
+   * wherever), and future templates automatically.
+   */
   function parseGroupStage(cells, cfg) {
     const validIds = new Set(cfg.matches.map(m => m.id));
     const scores = {};
     for (const row of cells) {
       const id = parseInt(row[0], 10);
       if (!id || !validIds.has(id)) continue;
-      const h = parseInt(row[5], 10);
-      const a = parseInt(row[6], 10);
-      if (!isNaN(h) && !isNaN(a) && h >= 0 && a >= 0) {
-        scores[id] = { h, a };
+      // scan for first pair of adjacent non-negative integers in cols 1..10
+      let h = NaN, a = NaN;
+      for (let c = 1; c <= Math.min(row.length - 1, 10); c++) {
+        const v1 = parseInt(row[c], 10);
+        const v2 = parseInt(row[c + 1], 10);
+        if (!isNaN(v1) && !isNaN(v2) && v1 >= 0 && v2 >= 0
+            && String(v1) === (row[c] || '').trim()
+            && String(v2) === (row[c + 1] || '').trim()) {
+          h = v1; a = v2; break;
+        }
       }
+      if (!isNaN(h) && !isNaN(a)) scores[id] = { h, a };
     }
     return scores;
   }
