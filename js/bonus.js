@@ -51,4 +51,5 @@
   }
 
   window.wireResetButton();
+  window.verifyLock();
 })();

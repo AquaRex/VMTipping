@@ -68,4 +68,5 @@
   updateProgress();
 
   window.wireResetButton();
+  window.verifyLock();
 })();

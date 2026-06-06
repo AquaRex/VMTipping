@@ -66,6 +66,24 @@
   };
 
   // Wire up a "Nullstill" button — disabled when locked.
+  // On page load, verify the published entry still exists in the DB.
+  // If admin removed it, silently unlock so the user can re-submit.
+  window.verifyLock = async function () {
+    if (!Draft.locked) return;
+    const id = Draft.data.publishedId;
+    if (!id) { Draft.unlock(); return; }
+    try {
+      const all = await DB.listEntries();
+      const still = all.some(e => e.id === id);
+      if (!still) {
+        delete Draft.data.publishedId;
+        Draft.unlock();
+        App.toast("Skjemaet ditt er fjernet av admin — du kan sende inn på nytt.", "info");
+        location.reload();
+      }
+    } catch { /* network error — stay locked to be safe */ }
+  };
+
   window.wireResetButton = function () {
     const btn = document.getElementById("reset-btn");
     if (!btn) return;

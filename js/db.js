@@ -107,9 +107,9 @@
       patch = { ...patch, updated_at: new Date().toISOString() };
       if (USING_SUPABASE) {
         const { data, error } = await sb
-          .from("entries").update(patch).eq("id", id).select().single();
+          .from("entries").update(patch).eq("id", id).select();
         if (error) throw error;
-        return data;
+        return (data && data[0]) || null;
       }
       const all = lsGet(LS.entries, []);
       const i = all.findIndex((e) => e.id === id);

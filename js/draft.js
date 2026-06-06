@@ -34,6 +34,7 @@
     setGruppe(g) { data.gruppe = g; save(); },
     get locked() { return !!data.locked; },
     lock() { data.locked = true; save(); },
+    unlock() { data.locked = false; save(); },
 
     matches: data.predictions.matches,
     knockout: data.predictions.knockout,
