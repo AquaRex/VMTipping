@@ -64,6 +64,7 @@
     renderBoard();
     renderEntries();
     renderFasit();
+    renderFasitBonus();
     renderBonusCfg();
     renderSetup();
   }
@@ -268,12 +269,34 @@
       setRounds: (map) => { answerKey.knockout = map; }
     };
     SchemaForm.mount({ cfg, store, left: L, mid: M, right: R });
+  }
 
-    // ---- Bonus fasit (same buttons as the player page) ----
-    pane.appendChild(el("div", { class: "section-title" }, [el("h2", {}, ["Fasit – bonusspørsmål"])]));
-    const bhost = el("div", {}, []);
-    pane.appendChild(bhost);
-    BonusForm.render(bhost, {
+  /* ====================================================================
+   *  TAB: Fasit – Bonusspørsmål  (separate tab, same UI as bonus.html)
+   * ==================================================================*/
+  function renderFasitBonus() {
+    const pane = document.getElementById("tab-fasitbonus");
+    pane.innerHTML = "";
+
+    const intro = el("div", { class: "card" }, []);
+    intro.appendChild(el("h2", {}, ["Fasit – Bonusspørsmål"]));
+    intro.appendChild(el("p", { class: "sub" }, [
+      "Fyll inn fasiten for bonusspørsmålene. Bruker samme visning som deltakernes side. " +
+      "Trykk «Lagre fasit» og deretter «Rett alle» for å oppdatere alles poeng."
+    ]));
+    const saveRow = el("div", { class: "btn-row" }, []);
+    const saveBtn = el("button", { class: "btn btn-primary" }, ["💾 Lagre fasit"]);
+    saveBtn.addEventListener("click", async () => { await saveAnswerKey(); App.toast("Fasit lagret.", "success"); });
+    saveRow.appendChild(saveBtn);
+    const recBtn = el("button", { class: "btn" }, ["↻ Lagre + rett alle"]);
+    recBtn.addEventListener("click", async () => { await saveAnswerKey(); await recalcAll(); });
+    saveRow.appendChild(recBtn);
+    intro.appendChild(saveRow);
+    pane.appendChild(intro);
+
+    const content = el("div", {}, []);
+    pane.appendChild(content);
+    BonusForm.render(content, {
       cfg,
       get: (id) => answerKey.bonus[id],
       set: (id, v) => { if (v) answerKey.bonus[id] = v; else delete answerKey.bonus[id]; },

@@ -179,15 +179,15 @@ window.DEFAULT_CONFIG = {
   /* ---- Knockout bracket (visual tree like the Excel sheet) ----------------
    * Round of 32 slots are picked by the player (each has a "seed" hint like the
    * original sheet). Later rounds fill automatically from the winners you click.
-   * `from` = winner of that match feeds this slot; `from`+`loser` = the loser
-   * (used for the bronze final). `next`/`nextSlot` = where the winner goes.    */
+   * `from` = winner of that match feeds this slot.
+   * `next`/`nextSlot` = where the winner goes.                                 */
   knockoutBracket: {
     rounds: [
       { key: "r32",    name: "16-delsfinale",    matchIds: [74, 77, 73, 75, 83, 84, 81, 82, 76, 78, 79, 80, 86, 88, 85, 87] },
       { key: "r16",    name: "8-delsfinale",     matchIds: [89, 90, 93, 94, 91, 92, 95, 96] },
       { key: "qf",     name: "Kvartfinale",      matchIds: [97, 98, 99, 100] },
       { key: "sf",     name: "Semifinale",       matchIds: [101, 102] },
-      { key: "final",  name: "Finale / Bronse",  matchIds: [104, 103] }
+      { key: "final",  name: "Finale",            matchIds: [104] }
     ],
     matches: {
       // Round of 32
@@ -204,7 +204,7 @@ window.DEFAULT_CONFIG = {
       79: { date: "1. jul",  time: "03:00", top: { seed: "1A" }, bot: { seed: "3. plass C/E/F/H/I" }, next: 92, nextSlot: "top" },
       80: { date: "2. jul",  time: "06:00", top: { seed: "1L" }, bot: { seed: "3. plass E/H/I/J/K" }, next: 92, nextSlot: "bot" },
       86: { date: "4. jul",  time: "00:00", top: { seed: "1J" }, bot: { seed: "2H" }, next: 95, nextSlot: "top" },
-      88: { date: "3. jul",  time: "20:00", top: { seed: "2D" }, bot: { seed: "2G" }, next: 95, nextSlot: "bot" },
+      88: { date: "3. jul",  time: "20:00", top: { seed: "2D" }, bot: { seed: "2J" }, next: 95, nextSlot: "bot" },
       85: { date: "3. jul",  time: "05:00", top: { seed: "1B" }, bot: { seed: "3. plass E/F/G/I/J" }, next: 96, nextSlot: "top" },
       87: { date: "4. jul",  time: "03:30", top: { seed: "1K" }, bot: { seed: "3. plass D/E/I/J/L" }, next: 96, nextSlot: "bot" },
       // Round of 16 (8-delsfinale)
@@ -221,12 +221,11 @@ window.DEFAULT_CONFIG = {
       98:  { date: "11. jul", time: "09:00", top: { from: 93 }, bot: { from: 94 }, next: 101, nextSlot: "bot" },
       99:  { date: "11. jul", time: "23:00", top: { from: 91 }, bot: { from: 92 }, next: 102, nextSlot: "top" },
       100: { date: "12. jul", time: "03:00", top: { from: 95 }, bot: { from: 96 }, next: 102, nextSlot: "bot" },
-      // Semifinals (loser goes to bronze final 103)
-      101: { date: "14. jul", time: "21:00", top: { from: 97 }, bot: { from: 98 }, next: 104, nextSlot: "top", loserNext: 103, loserSlot: "top" },
-      102: { date: "15. jul", time: "21:00", top: { from: 99 }, bot: { from: 100 }, next: 104, nextSlot: "bot", loserNext: 103, loserSlot: "bot" },
-      // Final + Bronze
-      104: { date: "19. jul", time: "21:00", title: "Finale", top: { from: 101 }, bot: { from: 102 } },
-      103: { date: "18. jul", time: "23:00", title: "Bronsefinale", top: { from: 101, loser: true }, bot: { from: 102, loser: true } }
+      // Semifinals
+      101: { date: "14. jul", time: "21:00", top: { from: 97 },  bot: { from: 98 },  next: 104, nextSlot: "top" },
+      102: { date: "15. jul", time: "21:00", top: { from: 99 },  bot: { from: 100 }, next: 104, nextSlot: "bot" },
+      // Finale
+      104: { date: "19. jul", time: "21:00", title: "Finale", top: { from: 101 }, bot: { from: 102 } }
     }
   },
 

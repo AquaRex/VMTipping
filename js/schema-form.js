@@ -168,6 +168,13 @@
         for (let si = 0; si < slots.length; si++) trySlot(si, new Set());
         Object.keys(groupToSlot).forEach((g) => { res[slots[groupToSlot[g]].seed] = teamByGroup[g]; });
       }
+      // Safety: a team must not appear in two bracket slots.
+      // If the config has a duplicate seed (shouldn't happen, but guards against it),
+      // remove all but the first occurrence so the same team can't occupy two R32 spots.
+      const seenTeams = new Set();
+      Object.keys(res).forEach((k) => {
+        if (seenTeams.has(res[k])) delete res[k]; else seenTeams.add(res[k]);
+      });
       return res;
     }
 
@@ -223,7 +230,15 @@
       const chk = el("button", { class: "winchk" + (isWinner ? " on" : ""), title: "Velg vinner" }, ["✓"]);
       if (!team) chk.disabled = true;
       chk.addEventListener("click", () => {
-        store.setWinner(mid_, isWinner ? "" : team);
+        const pick = isWinner ? "" : team;
+        if (pick) {
+          // A team can only advance through ONE path. Clear any other match where
+          // this same team is stored as winner before setting the new one.
+          B.rounds.forEach((r) => r.matchIds.forEach((id) => {
+            if (id !== mid_ && store.getWinner(id) === pick) store.setWinner(id, "");
+          }));
+        }
+        store.setWinner(mid_, pick);
         renderBracket();
         if (onChange) onChange();
       });
