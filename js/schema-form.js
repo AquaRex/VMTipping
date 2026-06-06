@@ -192,15 +192,21 @@
       // 2. Draw connectors at natural (unscaled) coordinates
       drawConnectors();
 
-      // 3. Now scale to fit the container
-      const container = koWrap;
-      const available = container.clientWidth;
-      const natural = bracketEl.scrollWidth;
-      if (natural > available) {
-        const scale = available / natural;
+      // 3. Scale to fit width; card height shrinks to exactly contain the scaled bracket.
+      const style = getComputedStyle(koWrap);
+      const padH = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+      const availW = koWrap.clientWidth - padH;
+      const naturalW = bracketEl.scrollWidth;
+      const naturalH = bracketEl.offsetHeight;  // offsetHeight not scrollHeight — no phantom scroll space
+      if (naturalW > availW) {
+        const scale = availW / naturalW;
         bracketEl.style.transformOrigin = "top left";
         bracketEl.style.transform = `scale(${scale})`;
-        koWrap.style.height = (bracketEl.scrollHeight * scale) + "px";
+        const topOffset = bracketEl.offsetTop;
+        const padBottom = parseFloat(style.paddingBottom);
+        koWrap.style.height = (topOffset + naturalH * scale + padBottom) + "px";
+      } else {
+        koWrap.style.height = "";
       }
     }
 
