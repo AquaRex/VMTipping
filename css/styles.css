@@ -247,12 +247,10 @@ input.sc:hover { border-color: var(--accent-2); }
 /* ---------- knockout bracket ---------- */
 .bracket-card { overflow: hidden; }
 .bracket {
-  display: flex; gap: 2.5rem; overflow-x: auto; padding: .4rem 0 1rem;
-  align-items: stretch; -webkit-overflow-scrolling: touch; cursor: grab;
-  min-height: 70vh; position: relative;
+  display: flex; gap: 2.5rem; padding: .4rem 0 1rem;
+  align-items: stretch; position: relative;
 }
-.bracket.dragging { cursor: grabbing; user-select: none; }
-.bracket.dragging .bslot { pointer-events: none; }
+.bracket-card { overflow: visible; }
 /* rounds grow to fill the wide right column on big screens, but keep a
    minimum so they pan/scroll on small screens */
 .round { display: flex; flex-direction: column; flex: 1 1 220px; min-width: 215px; max-width: 360px; }
@@ -299,6 +297,8 @@ input.sc:hover { border-color: var(--accent-2); }
 }
 .opt:hover { border-color: var(--accent); }
 .opt.sel { background: var(--accent); border-color: var(--accent-2); color: #fff; }
+.opt.readonly { cursor: default; opacity: .75; }
+.opt.readonly:hover { border-color: var(--line); }
 .duel .opt { flex: 1; min-width: 130px; }
 .yesno .opt { min-width: 70px; }
 

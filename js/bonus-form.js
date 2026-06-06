@@ -9,6 +9,7 @@
   function render(container, opts) {
     const { cfg, get, set, onChange } = opts;
     const showPoints = opts.showPoints !== false;
+    const readonly = !!opts.readonly;
     const el = App.el;
     const bonus = cfg.bonus || { questions: [] };
     container.innerHTML = "";
@@ -44,16 +45,16 @@
       if (q.type === "duel") {
         const row = el("div", { class: "duel" }, []);
         (q.options || []).forEach((opt) => {
-          const b = el("div", { class: "opt" + (current === opt ? " sel" : "") }, [opt]);
-          b.addEventListener("click", () => { set(q.id, current === opt ? "" : opt); rerender(); });
+          const b = el("div", { class: "opt" + (current === opt ? " sel" : "") + (readonly ? " readonly" : "") }, [opt]);
+          if (!readonly) b.addEventListener("click", () => { set(q.id, current === opt ? "" : opt); rerender(); });
           row.appendChild(b);
         });
         wrap.appendChild(row);
       } else if (q.type === "yesno") {
         const row = el("div", { class: "yesno" }, []);
         [["Ja", "J"], ["Nei", "N"]].forEach(([lbl, val]) => {
-          const b = el("div", { class: "opt" + (current === val ? " sel" : "") }, [lbl]);
-          b.addEventListener("click", () => { set(q.id, current === val ? "" : val); rerender(); });
+          const b = el("div", { class: "opt" + (current === val ? " sel" : "") + (readonly ? " readonly" : "") }, [lbl]);
+          if (!readonly) b.addEventListener("click", () => { set(q.id, current === val ? "" : val); rerender(); });
           row.appendChild(b);
         });
         wrap.appendChild(row);
@@ -65,12 +66,14 @@
           value: current || "",
           options: list,
           placeholder: q.type === "country" ? "Søk etter land …" : "Søk etter spiller …",
-          onChange: (v) => { set(q.id, (v || "").trim()); if (onChange) onChange(); }
+          onChange: readonly ? null : (v) => { set(q.id, (v || "").trim()); if (onChange) onChange(); },
+          disabled: readonly
         });
         wrap.appendChild(ac);
       } else {
-        const inp = el("input", { type: "text", value: current || "", placeholder: "Skriv svaret …", style: "width:100%" }, []);
-        inp.addEventListener("input", () => { set(q.id, inp.value.trim()); if (onChange) onChange(); });
+        const inp = el("input", { type: "text", value: current || "", placeholder: "Skriv svaret …",
+          style: "width:100%", ...(readonly ? { disabled: "true" } : {}) }, []);
+        if (!readonly) inp.addEventListener("input", () => { set(q.id, inp.value.trim()); if (onChange) onChange(); });
         wrap.appendChild(inp);
       }
 

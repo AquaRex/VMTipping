@@ -8,6 +8,7 @@
 
   const blank = () => ({
     name: "",
+    gruppe: "",
     predictions: { matches: {}, knockout: {}, bracket: { slots: {}, winners: {} }, bonus: {} }
   });
 
@@ -29,6 +30,10 @@
     get data() { return data; },
     get name() { return data.name || ""; },
     setName(n) { data.name = n; save(); },
+    get gruppe() { return data.gruppe || ""; },
+    setGruppe(g) { data.gruppe = g; save(); },
+    get locked() { return !!data.locked; },
+    lock() { data.locked = true; save(); },
 
     matches: data.predictions.matches,
     knockout: data.predictions.knockout,
@@ -59,7 +64,7 @@
       save();
     },
     save,
-    reset() { data = blank(); save(); }
+    reset() { data = blank(); save(); }   // lock is cleared on reset
   };
 
   window.Draft = Draft;

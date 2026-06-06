@@ -84,6 +84,7 @@
     async createEntry(entry) {
       const row = {
         name: entry.name,
+        gruppe: entry.gruppe || "",
         predictions: entry.predictions || {},
         scores: {},
         total: 0,

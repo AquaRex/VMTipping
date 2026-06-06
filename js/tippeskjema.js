@@ -1,7 +1,5 @@
 /* =============================================================================
- *  tippeskjema.js  —  the player's schedule page. Thin wrapper that mounts the
- *  shared SchemaForm (group scores + standings + bracket) backed by the saved
- *  Draft, and wires the name field, progress, publish and reset.
+ *  tippeskjema.js  —  the player's schedule page.
  * ===========================================================================*/
 (async function () {
   const cfg = (await App.loadConfig()).config;
@@ -11,7 +9,22 @@
   const content = document.getElementById("content");
   const nameInput = document.getElementById("player-name");
   nameInput.value = Draft.name;
-  nameInput.addEventListener("input", () => Draft.setName(nameInput.value));
+
+  const locked = Draft.locked;
+
+  if (locked) {
+    nameInput.disabled = true;
+    // hide csv zone and reset button
+    const csvZone = document.getElementById("csv-import-zone");
+    if (csvZone) csvZone.style.display = "none";
+    // show locked banner
+    const banner = App.el("div", { class: "banner info", style: "margin-bottom:1rem;text-align:center" }, [
+      "🔒 Du har publisert — skjemaet er låst og kan ikke endres."
+    ]);
+    content.parentElement.insertBefore(banner, content);
+  } else {
+    nameInput.addEventListener("input", () => Draft.setName(nameInput.value));
+  }
 
   content.innerHTML = "";
   const layout = App.el("div", { class: "layout" }, []);
@@ -23,25 +36,28 @@
 
   const store = {
     getMatch: (id) => Draft.matches[id],
-    setMatch: (id, h, a) => Draft.setMatch(id, h, a),
+    setMatch: (id, h, a) => { if (!locked) Draft.setMatch(id, h, a); },
     getWinner: (mid) => Draft.bracket.winners[mid] || "",
-    setWinner: (mid, team) => Draft.setWinner(mid, team),
+    setWinner: (mid, team) => { if (!locked) Draft.setWinner(mid, team); },
     setRounds: (map) => Object.keys(map).forEach((k) => Draft.setKnockout(k, map[k]))
   };
 
-  const form = SchemaForm.mount({ cfg, store, left: colLeft, mid: colMid, right: colRight, onChange: updateProgress });
+  const form = SchemaForm.mount({ cfg, store, left: colLeft, mid: colMid, right: colRight,
+    onChange: locked ? null : updateProgress, readonly: locked });
 
-  CsvImport.buildDropZone(
-    document.getElementById("csv-import-zone"),
-    cfg,
-    (matchScores, bracketWinners) => {
-      Object.entries(matchScores).forEach(([id, { h, a }]) => Draft.setMatch(+id, String(h), String(a)));
-      Object.entries(bracketWinners).forEach(([mid, team]) => Draft.setWinner(+mid, team));
-      form.reloadInputs();
-      form.refresh();
-      updateProgress();
-    }
-  );
+  if (!locked) {
+    CsvImport.buildDropZone(
+      document.getElementById("csv-import-zone"),
+      cfg,
+      (matchScores, bracketWinners) => {
+        Object.entries(matchScores).forEach(([id, { h, a }]) => Draft.setMatch(+id, String(h), String(a)));
+        Object.entries(bracketWinners).forEach(([mid, team]) => Draft.setWinner(+mid, team));
+        form.reloadInputs();
+        form.refresh();
+        updateProgress();
+      }
+    );
+  }
 
   function updateProgress() {
     const done = Object.keys(Draft.matches).filter((id) => {
@@ -51,6 +67,5 @@
   }
   updateProgress();
 
-  document.getElementById("publish-btn").addEventListener("click", window.publishDraft);
   window.wireResetButton();
 })();

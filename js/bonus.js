@@ -1,6 +1,5 @@
 /* =============================================================================
- *  bonus.js  —  the player's bonus questions page. Thin wrapper around the
- *  shared BonusForm, backed by the saved Draft.
+ *  bonus.js  —  the player's bonus questions page.
  * ===========================================================================*/
 (async function () {
   const cfg = (await App.loadConfig()).config;
@@ -8,18 +7,33 @@
 
   const nameInput = document.getElementById("player-name");
   nameInput.value = Draft.name;
-  nameInput.addEventListener("input", () => Draft.setName(nameInput.value));
+
+  const locked = Draft.locked;
+
+  if (locked) {
+    nameInput.disabled = true;
+  } else {
+    nameInput.addEventListener("input", () => Draft.setName(nameInput.value));
+  }
 
   const bonus = cfg.bonus || { questions: [] };
   if (bonus.deadline) document.getElementById("deadline").textContent = "Leveres innen " + bonus.deadline + ".";
 
   const content = document.getElementById("content");
 
+  if (locked) {
+    const banner = App.el("div", { class: "banner info", style: "margin-bottom:1rem;text-align:center" }, [
+      "🔒 Du har publisert — skjemaet er låst og kan ikke endres."
+    ]);
+    content.parentElement.insertBefore(banner, content);
+  }
+
   BonusForm.render(content, {
     cfg,
     get: (id) => Draft.bonus[id],
-    set: (id, v) => Draft.setBonus(id, v),
-    onChange: updateProgress
+    set: (id, v) => { if (!locked) Draft.setBonus(id, v); },
+    onChange: locked ? null : updateProgress,
+    readonly: locked
   });
 
   function updateProgress() {
@@ -28,6 +42,13 @@
   }
   updateProgress();
 
-  document.getElementById("publish-btn").addEventListener("click", window.publishDraft);
+  // Publish button: only shown here, hidden when locked
+  const publishBtn = document.getElementById("publish-btn");
+  if (locked) {
+    publishBtn.style.display = "none";
+  } else {
+    publishBtn.addEventListener("click", window.publishDraft);
+  }
+
   window.wireResetButton();
 })();

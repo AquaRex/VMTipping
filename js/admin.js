@@ -91,6 +91,9 @@
     card.appendChild(el("h2", {}, ["Resultattavle"]));
     card.appendChild(el("p", { class: "sub" }, [`${entries.length} publiserte skjema. Poengsum oppdateres når du retter (eller setter fasit og trykker «Rett alle»).`]));
 
+    const grupper = [...new Set(entries.map(e => e.gruppe || "").filter(Boolean))].sort();
+    let activeGruppe = "";
+
     const btnRow = el("div", { class: "btn-row", style: "margin-bottom:1rem" }, []);
     const recalc = el("button", { class: "btn btn-primary" }, ["↻ Rett alle automatisk mot fasit"]);
     recalc.addEventListener("click", recalcAll);
@@ -98,17 +101,39 @@
     const refresh = el("button", { class: "btn" }, ["⟳ Hent på nytt"]);
     refresh.addEventListener("click", reloadEntries);
     btnRow.appendChild(refresh);
+    if (grupper.length) {
+      const spacer = el("span", { style: "flex:1" }, []);
+      btnRow.appendChild(spacer);
+      btnRow.appendChild(el("label", { for: "gruppe-filter", style: "color:var(--muted);font-size:.85rem" }, ["Gruppe:"]));
+      const sel = el("select", { id: "gruppe-filter", class: "chip" }, []);
+      sel.appendChild(new Option("Alle grupper", ""));
+      grupper.forEach(g => sel.appendChild(new Option(g, g)));
+      sel.addEventListener("change", () => { activeGruppe = sel.value; renderTable(); });
+      btnRow.appendChild(sel);
+    }
     card.appendChild(btnRow);
 
     if (!entries.length) {
       card.appendChild(el("p", { class: "muted" }, ["Ingen skjema er publisert ennå."]));
-    } else {
+      pane.appendChild(card);
+      return;
+    }
+
+    const tblWrap = el("div", {}, []);
+    card.appendChild(tblWrap);
+
+    function renderTable() {
+      tblWrap.innerHTML = "";
+      const filtered = entries
+        .filter(e => !activeGruppe || (e.gruppe || "") === activeGruppe)
+        .slice().sort((a, b) => (b.total || 0) - (a.total || 0));
+      const showGruppe = !activeGruppe && grupper.length > 0;
       const tbl = el("table", { class: "tbl" }, []);
-      tbl.innerHTML = "<thead><tr><th>#</th><th>Navn</th><th>Poeng</th><th></th></tr></thead>";
+      tbl.innerHTML = `<thead><tr><th>#</th><th>Navn</th>${showGruppe ? "<th>Gruppe</th>" : ""}<th>Poeng</th><th></th></tr></thead>`;
       const tb = el("tbody", {}, []);
-      entries.slice().sort((a, b) => (b.total || 0) - (a.total || 0)).forEach((en, i) => {
+      filtered.forEach((en, i) => {
         const tr = el("tr", {}, []);
-        tr.innerHTML = `<td class="rank">${i + 1}</td><td>${App.escape(en.name)}</td><td><b>${en.total || 0}</b></td>`;
+        tr.innerHTML = `<td class="rank">${i + 1}</td><td>${App.escape(en.name)}</td>${showGruppe ? `<td class="muted">${App.escape(en.gruppe || "—")}</td>` : ""}<td><b>${en.total || 0}</b></td>`;
         const td = el("td", {}, []);
         const b = el("button", { class: "btn btn-sm" }, ["Åpne / rett"]);
         b.addEventListener("click", () => openEntry(en.id));
@@ -116,8 +141,9 @@
         tb.appendChild(tr);
       });
       tbl.appendChild(tb);
-      card.appendChild(tbl);
+      tblWrap.appendChild(tbl);
     }
+    renderTable();
     pane.appendChild(card);
   }
 
@@ -139,17 +165,49 @@
     pane.innerHTML = "";
     const card = el("div", { class: "card" }, []);
     card.appendChild(el("h2", {}, ["Deltakere"]));
-    card.appendChild(el("p", { class: "sub" }, ["Klikk et navn for å se alle svar og rette manuelt (toggle riktig/feil)."]));
+    card.appendChild(el("p", { class: "sub" }, ["Rediger gruppe direkte i tabellen og trykk Enter eller klikk bort for å lagre. Klikk «Rett» for å se og rette svarene."]));
     if (!entries.length) {
       card.appendChild(el("p", { class: "muted" }, ["Ingen skjema er publisert ennå."]));
     } else {
       const tbl = el("table", { class: "tbl" }, []);
-      tbl.innerHTML = "<thead><tr><th>Navn</th><th>Poeng</th><th>Publisert</th><th></th></tr></thead>";
+      tbl.innerHTML = "<thead><tr><th>Navn</th><th>Gruppe</th><th>Poeng</th><th>Publisert</th><th></th></tr></thead>";
       const tb = el("tbody", {}, []);
       entries.forEach((en) => {
         const tr = el("tr", {}, []);
         const when = en.created_at ? new Date(en.created_at).toLocaleString("no-NO") : "";
-        tr.innerHTML = `<td>${App.escape(en.name)}</td><td><b>${en.total || 0}</b></td><td class="muted">${when}</td>`;
+
+        // name cell
+        const nameTd = el("td", {}, []);
+        nameTd.textContent = en.name;
+        tr.appendChild(nameTd);
+
+        // gruppe editable cell
+        const grpTd = el("td", {}, []);
+        const grpIn = el("input", {
+          type: "text", value: en.gruppe || "",
+          placeholder: "Ingen gruppe",
+          style: "width:100%;background:transparent;border:1px solid transparent;border-radius:4px;padding:.2rem .3rem;color:inherit"
+        }, []);
+        grpIn.addEventListener("focus", () => grpIn.style.borderColor = "var(--accent)");
+        const saveGruppe = async () => {
+          grpIn.style.borderColor = "transparent";
+          const val = grpIn.value.trim();
+          if (val === (en.gruppe || "")) return;
+          en.gruppe = val;
+          await DB.updateEntry(en.id, { gruppe: val });
+          renderBoard(); // refresh board filter chips
+          App.toast(`Gruppe for ${en.name} oppdatert.`, "success");
+        };
+        grpIn.addEventListener("blur", saveGruppe);
+        grpIn.addEventListener("keydown", (e) => { if (e.key === "Enter") grpIn.blur(); });
+        grpTd.appendChild(grpIn);
+        tr.appendChild(grpTd);
+
+        const ptsTd = el("td", {}, [el("b", {}, [String(en.total || 0)])]);
+        tr.appendChild(ptsTd);
+        const whenTd = el("td", { class: "muted" }, [when]);
+        tr.appendChild(whenTd);
+
         const td = el("td", {}, []);
         const open = el("button", { class: "btn btn-sm" }, ["Rett"]);
         open.addEventListener("click", () => openEntry(en.id));

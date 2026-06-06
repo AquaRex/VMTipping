@@ -13,6 +13,7 @@
 (function () {
   function mount(opts) {
     const { cfg, store, left, mid, right, onChange } = opts;
+    const readonly = !!opts.readonly;
     const el = App.el;
     const MAX_GOALS = 30;
     const clamp = (n) => Math.max(0, Math.min(MAX_GOALS, n));
@@ -69,7 +70,8 @@
     function makeScoreInput(initial) {
       const input = el("input", {
         type: "text", inputmode: "numeric", maxlength: "2",
-        class: "sc", value: initial != null ? initial : ""
+        class: "sc", value: initial != null ? initial : "",
+        ...(readonly ? { disabled: "true", tabindex: "-1" } : {})
       }, []);
       scoreInputs.push(input);
       const getNum = () => parseInt(input.value, 10) || 0;
@@ -123,8 +125,6 @@
     const bracketEl = el("div", { class: "bracket" }, []);
     koWrap.appendChild(bracketEl);
     right.appendChild(koWrap);
-    enableDragScroll(bracketEl);
-
     const cmp = WC.cmp;
 
     // Standings + seeding are computed by the shared, FIFA-accurate engine in
@@ -180,8 +180,28 @@
         bracketEl.appendChild(col);
       });
       deriveRounds();
-      // draw connector lines after layout is painted
-      requestAnimationFrame(drawConnectors);
+      requestAnimationFrame(drawAndScale);
+    }
+
+    function drawAndScale() {
+      // 1. Reset any existing transform so getBoundingClientRect() returns natural coords
+      bracketEl.style.transform = "";
+      bracketEl.style.transformOrigin = "";
+      koWrap.style.height = "";
+
+      // 2. Draw connectors at natural (unscaled) coordinates
+      drawConnectors();
+
+      // 3. Now scale to fit the container
+      const container = koWrap;
+      const available = container.clientWidth;
+      const natural = bracketEl.scrollWidth;
+      if (natural > available) {
+        const scale = available / natural;
+        bracketEl.style.transformOrigin = "top left";
+        bracketEl.style.transform = `scale(${scale})`;
+        koWrap.style.height = (bracketEl.scrollHeight * scale) + "px";
+      }
     }
 
     function drawConnectors() {
@@ -295,7 +315,7 @@
       const label = team || (slot.seed !== undefined ? slot.seed : "—");
       row.appendChild(el("span", { class: "bteam" + (team ? "" : " empty") }, [label]));
       const chk = el("button", { class: "winchk" + (isWinner ? " on" : ""), title: "Velg vinner" }, ["✓"]);
-      if (!team) chk.disabled = true;
+      if (!team || readonly) chk.disabled = true;
       chk.addEventListener("click", () => {
         const pick = isWinner ? "" : team;
         if (pick) {
@@ -321,20 +341,6 @@
       });
       row.appendChild(chk);
       return row;
-    }
-
-    function enableDragScroll(elm) {
-      let down = false, startX = 0, startLeft = 0;
-      elm.addEventListener("mousedown", (e) => {
-        if (e.target.closest("button, select, input")) return;
-        down = true; startX = e.pageX; startLeft = elm.scrollLeft; elm.classList.add("dragging");
-      });
-      window.addEventListener("mousemove", (e) => {
-        if (!down) return;
-        e.preventDefault();
-        elm.scrollLeft = startLeft - (e.pageX - startX);
-      });
-      window.addEventListener("mouseup", () => { down = false; elm.classList.remove("dragging"); });
     }
 
     /* ---------------- standings tables (middle column) ---------------- */
@@ -400,6 +406,10 @@
     }
 
     updateDerived();
+
+    const resizeObs = new ResizeObserver(() => drawAndScale());
+    resizeObs.observe(koWrap);
+
     return { refresh: updateDerived, reloadInputs };
   }
 
