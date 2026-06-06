@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VM-tipping 2026 — Admin</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <nav id="nav"></nav>
+  <main class="wrap">
+
+    <!-- Login gate -->
+    <div id="gate" class="card" style="max-width:420px;margin:3rem auto;">
+      <h2>Admin-innlogging</h2>
+      <p class="sub">Skriv inn admin-passordet for å rette og konfigurere.</p>
+      <div class="btn-row">
+        <input type="password" id="admin-pass" placeholder="Passord" style="flex:1">
+        <button class="btn btn-primary" id="login-btn">Logg inn</button>
+      </div>
+    </div>
+
+    <!-- Admin app -->
+    <div id="admin" class="hidden">
+      <div class="page-head">
+        <h1>Adminpanel</h1>
+        <p id="db-status" class="muted"></p>
+      </div>
+
+      <div class="nav-links" id="tabs" style="margin-bottom:1.2rem;">
+        <a href="#" data-tab="board" class="active">🏆 Resultattavle</a>
+        <a href="#" data-tab="entries">📝 Deltakere &amp; retting</a>
+        <a href="#" data-tab="fasit">✅ Fasit</a>
+        <a href="#" data-tab="bonuscfg">❓ Bonusspørsmål</a>
+        <a href="#" data-tab="setup">⚙️ Oppsett</a>
+      </div>
+
+      <div id="tab-board"   class="tabpane"></div>
+      <div id="tab-entries" class="tabpane hidden"></div>
+      <div id="tab-fasit"   class="tabpane hidden"></div>
+      <div id="tab-bonuscfg" class="tabpane hidden"></div>
+      <div id="tab-setup"   class="tabpane hidden"></div>
+    </div>
+  </main>
+
+  <div id="modal-host"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/scoring.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
