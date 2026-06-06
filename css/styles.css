@@ -247,9 +247,9 @@ input.sc:hover { border-color: var(--accent-2); }
 /* ---------- knockout bracket ---------- */
 .bracket-card { overflow: hidden; }
 .bracket {
-  display: flex; gap: .5rem; overflow-x: auto; padding: .4rem 0 1rem;
+  display: flex; gap: 2.5rem; overflow-x: auto; padding: .4rem 0 1rem;
   align-items: stretch; -webkit-overflow-scrolling: touch; cursor: grab;
-  min-height: 70vh;
+  min-height: 70vh; position: relative;
 }
 .bracket.dragging { cursor: grabbing; user-select: none; }
 .bracket.dragging .bslot { pointer-events: none; }
@@ -261,7 +261,15 @@ input.sc:hover { border-color: var(--accent-2); }
   background: #0a0f15; color: #fff; border-radius: 6px; padding: .4rem .3rem; margin-bottom: .5rem;
 }
 .matches { flex: 1; display: flex; flex-direction: column; justify-content: space-around; gap: .55rem; }
+
+.bpair { display: flex; flex-direction: column; gap: .55rem; }
 .bmatch { display: flex; flex-direction: column; }
+
+/* SVG connector overlay — drawn by JS after each render */
+.bracket-svg {
+  position: absolute; inset: 0;
+  pointer-events: none; overflow: visible;
+}
 .bmeta { font-size: .68rem; color: var(--muted); margin-bottom: .15rem; padding-left: .25rem; }
 .bbox { border: 1px solid var(--line); border-radius: 8px; background: var(--bg-2); overflow: hidden; }
 .bbox.final { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(245,197,24,.25); }

@@ -156,17 +156,122 @@
       return (w && (w === a || w === b)) ? w : "";
     }
 
+    // map from matchId → its .bbox DOM element, populated during renderBox
+    const bboxEls = {};
+
     function renderBracket() {
       bracketEl.innerHTML = "";
       B.rounds.forEach((round) => {
         const col = el("div", { class: "round" }, []);
         col.appendChild(el("div", { class: "round-title" }, [round.name]));
         const matches = el("div", { class: "matches" }, []);
-        round.matchIds.forEach((mid_) => matches.appendChild(renderBox(mid_)));
+        const ids = round.matchIds;
+        if (ids.length > 1) {
+          for (let i = 0; i < ids.length; i += 2) {
+            const pair = el("div", { class: "bpair" }, []);
+            pair.appendChild(renderBox(ids[i]));
+            if (ids[i + 1] != null) pair.appendChild(renderBox(ids[i + 1]));
+            matches.appendChild(pair);
+          }
+        } else {
+          ids.forEach((mid_) => matches.appendChild(renderBox(mid_)));
+        }
         col.appendChild(matches);
         bracketEl.appendChild(col);
       });
       deriveRounds();
+      // draw connector lines after layout is painted
+      requestAnimationFrame(drawConnectors);
+    }
+
+    function drawConnectors() {
+      // remove old SVG if any
+      const old = bracketEl.querySelector(".bracket-svg");
+      if (old) old.remove();
+
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("class", "bracket-svg");
+      svg.setAttribute("width", bracketEl.scrollWidth);
+      svg.setAttribute("height", bracketEl.scrollHeight);
+
+      const bracketRect = bracketEl.getBoundingClientRect();
+      const color = getComputedStyle(bracketEl).getPropertyValue("--line").trim() || "#2a3a4a";
+
+      function midY(el) {
+        const r = el.getBoundingClientRect();
+        return r.top - bracketRect.top + bracketEl.scrollTop + r.height / 2;
+      }
+      function rightX(el) {
+        const r = el.getBoundingClientRect();
+        return r.right - bracketRect.left + bracketEl.scrollLeft;
+      }
+      function leftX(el) {
+        const r = el.getBoundingClientRect();
+        return r.left - bracketRect.left + bracketEl.scrollLeft;
+      }
+
+      function line(x1, y1, x2, y2) {
+        const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        l.setAttribute("x1", x1); l.setAttribute("y1", y1);
+        l.setAttribute("x2", x2); l.setAttribute("y2", y2);
+        l.setAttribute("stroke", color);
+        l.setAttribute("stroke-width", "1");
+        svg.appendChild(l);
+      }
+
+      // For each match that feeds into a next match, draw:
+      //   horizontal from right edge of source bbox → midpoint X
+      //   vertical spine joining the two sources at midpoint X
+      //   horizontal from midpoint X → left edge of target bbox
+      // Group sources by their shared next match
+      const groups = {};
+      Object.keys(B.matches).forEach((idStr) => {
+        const m = B.matches[idStr];
+        if (!m.next || !bboxEls[idStr] || !bboxEls[m.next]) return;
+        if (!groups[m.next]) groups[m.next] = [];
+        groups[m.next].push(+idStr);
+      });
+
+      Object.keys(groups).forEach((nextId) => {
+        const sources = groups[nextId];
+        const targetEl = bboxEls[nextId];
+        if (!targetEl) return;
+
+        const targetLeft = leftX(targetEl);
+        const targetMidY = midY(targetEl);
+        const midX = targetLeft - 18; // vertical spine, with visible stub into target
+
+        if (sources.length === 1) {
+          const srcEl = bboxEls[sources[0]];
+          if (!srcEl) return;
+          const sy = midY(srcEl);
+          const rx = rightX(srcEl);
+          // horizontal stub out, vertical elbow if needed, horizontal into target
+          line(rx, sy, midX, sy);
+          if (Math.round(sy) !== Math.round(targetMidY)) line(midX, sy, midX, targetMidY);
+          line(midX, targetMidY, targetLeft, targetMidY);
+        } else {
+          // two sources: horizontal stubs → vertical spine → horizontal into target
+          const srcEls = sources.map((id) => bboxEls[id]).filter(Boolean);
+          if (srcEls.length < 2) return;
+          const ys = srcEls.map(midY);
+          const spineY1 = Math.min(...ys);
+          const spineY2 = Math.max(...ys);
+          const spineMid = (spineY1 + spineY2) / 2;
+
+          // horizontal stubs from each source right edge → spine X
+          srcEls.forEach((srcEl) => {
+            line(rightX(srcEl), midY(srcEl), midX, midY(srcEl));
+          });
+          // vertical spine
+          line(midX, spineY1, midX, spineY2);
+          // horizontal from spine midpoint → target left edge (always at same Y)
+          if (Math.round(spineMid) !== Math.round(targetMidY)) line(midX, spineMid, midX, targetMidY);
+          line(midX, targetMidY, targetLeft, targetMidY);
+        }
+      });
+
+      bracketEl.appendChild(svg);
     }
     function renderBox(mid_) {
       const m = B.matches[mid_];
@@ -176,6 +281,7 @@
       inner.appendChild(renderSlot(mid_, "top"));
       inner.appendChild(renderSlot(mid_, "bot"));
       box.appendChild(inner);
+      bboxEls[mid_] = inner;  // register for connector drawing
       return box;
     }
     function renderSlot(mid_, side) {

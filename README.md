@@ -113,11 +113,9 @@ Du kan oppdatere den på to måter i **Admin → Oppsett → Spillere**:
 - **Manuelt**: lim inn én spiller per linje som `Navn, Land` (land er valgfritt)
   og klikk «Oppdater spillerliste fra tekst over». Nyttig for å rette enkeltnavn.
 
-  Improvements to be made; vertical size of gruppespill entries to match enmtries in the different groups of the tabeller
-  green gradient behind winner on the gruppespill table
   Admin panel, fasit setup to be IDENTICAL to normal tippeskjema and bonusspørsmål page, reusing directly, instead of duplicate page..
-  Remove "lag og flagg" area, as these should be permanent anyway, country names or flags dont change.
   And remove Football players API ( names were too cryptic, we want full names )
+  Add Group for logging entries, so we can have separated leaderboards 
 
 Listen lagres i databasen sammen med resten av oppsettet, så alle ser den samme.
 

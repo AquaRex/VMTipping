@@ -422,22 +422,6 @@
     });
     pane.appendChild(sc);
 
-    // --- teams ---
-    const tc = el("div", { class: "card" }, []);
-    tc.appendChild(el("h2", {}, ["Lag og flagg"]));
-    tc.appendChild(el("p", { class: "sub" }, ["Flaggkode er en ISO-landkode (no, se, br, gb-eng …). Se flagcdn.com."]));
-    const tarea = el("textarea", { rows: "8", style: "width:100%;font-family:monospace", id: "teams-area" }, []);
-    tarea.value = cfg.teams.map((t) => `${t.name},${t.code}`).join("\n");
-    tc.appendChild(tarea);
-    const tbtn = el("button", { class: "btn", style: "margin-top:.5rem" }, ["Oppdater lagliste fra tekst over"]);
-    tbtn.addEventListener("click", () => {
-      cfg.teams = tarea.value.split("\n").map((l) => l.split(",")).filter((p) => p[0])
-        .map((p) => ({ name: (p[0] || "").trim(), code: (p[1] || "").trim().toLowerCase() }));
-      App.toast("Lagliste oppdatert (husk lagre).", "success");
-    });
-    tc.appendChild(tbtn);
-    pane.appendChild(tc);
-
     // --- players (for searchable "spiller" questions) ---
     const pc = el("div", { class: "card" }, []);
     pc.appendChild(el("h2", {}, ["Spillere (søkeliste)"]));
@@ -625,7 +609,7 @@
         matches.forEach((m) => [m.home, m.away].forEach((t) => {
           if (!known.has(t)) { cfg.teams.push({ name: t, code: "" }); known.add(t); }
         }));
-        App.toast(`Lastet ${matches.length} kamper. Sjekk flaggkoder under «Lag og flagg», så lagre.`, "success");
+        App.toast(`Lastet ${matches.length} kamper. Husk å lagre.`, "success");
         renderSetup();
       } catch (err) {
         App.toast("Klarte ikke å lese CSV: " + err.message, "error");
