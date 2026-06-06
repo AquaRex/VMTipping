@@ -15,3 +15,13 @@ window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXB
 
 /* Admin password for the configuration / scoring page. Change if you like. */
 window.ADMIN_PASSWORD = "4054";
+
+/* -----------------------------------------------------------------------------
+ *  API-Football key (https://www.api-football.com) — OPTIONAL.
+ *  Used ONLY by the «Hent spillere fra API» button in admin, to fill the
+ *  searchable player list automatically. The result is saved to the database,
+ *  so vanlige besøkende henter aldri fra API-et selv.
+ *  Free plan: maks 10 kall/minutt og 100 kall/dag — derfor: ikke spam knappen!
+ *  La stå "" for å skjule knappen og bruke den manuelle listen i stedet.
+ * ---------------------------------------------------------------------------*/
+window.API_FOOTBALL_KEY = "aefd3025bf4ca70d32fc9306abfb0e0f";

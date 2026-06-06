@@ -33,9 +33,10 @@
     gate.classList.add("hidden");
     adminEl.classList.remove("hidden");
     const res = await App.loadConfig();
-    cfg = res.config; answerKey = res.answerKey || { matches: {}, knockout: {}, bonus: {} };
+    cfg = res.config; answerKey = res.answerKey || {};
     answerKey.matches = answerKey.matches || {};
     answerKey.knockout = answerKey.knockout || {};
+    answerKey.bracketWinners = answerKey.bracketWinners || {};
     answerKey.bonus = answerKey.bonus || {};
     App.renderNav("admin");
     document.getElementById("db-status").textContent = DB.usingSupabase
@@ -198,10 +199,11 @@
       g.items.forEach((it) => {
         const correct = Scoring.resolved(en.scores, it.key, it.auto);
         const row = el("div", { class: "score-row" }, []);
-        row.appendChild(el("div", { class: "pick" }, [
-          el("b", {}, [it.label]),
-          el("span", { class: "muted", style: "margin-left:.5rem;font-size:.8rem" }, [it.keyInfo || ""])
-        ]));
+        const pickDiv = el("div", { class: "pick" }, []);
+        if (it.label) pickDiv.appendChild(el("span", { class: "q" }, [it.label]));
+        if (it.pick) pickDiv.appendChild(el("span", { class: "a" }, [it.pick]));
+        pickDiv.appendChild(el("span", { class: "keyinfo" }, [it.keyInfo || ""]));
+        row.appendChild(pickDiv);
         row.appendChild(el("div", { class: "muted" }, [`${it.points}p`]));
         const mark = el("div", { class: "mark" }, []);
         const ok = el("button", { class: "ok" + (correct ? " on" : "") }, ["✓"]);
@@ -239,7 +241,7 @@
     pane.innerHTML = "";
     const intro = el("div", { class: "card" }, []);
     intro.appendChild(el("h2", {}, ["Fasit (offisielle resultater)"]));
-    intro.appendChild(el("p", { class: "sub" }, ["Fyll inn etter hvert som mesterskapet går. Trykk «Lagre fasit», og deretter «Rett alle automatisk» på Resultattavlen for å oppdatere alle poeng."]));
+    intro.appendChild(el("p", { class: "sub" }, ["Fyll inn fasiten på nøyaktig samme måte som deltakerne tipper: skriv resultater i gruppespillet (tabellen og sluttspillet fylles ut automatisk), klikk vinnere i sluttspillet, og svar på bonusspørsmålene. Trykk «Lagre fasit», og deretter «Rett alle» for å oppdatere alle poeng."]));
     const saveRow = el("div", { class: "btn-row" }, []);
     const saveBtn = el("button", { class: "btn btn-primary" }, ["💾 Lagre fasit"]);
     saveBtn.addEventListener("click", async () => { await saveAnswerKey(); App.toast("Fasit lagret.", "success"); });
@@ -250,90 +252,33 @@
     intro.appendChild(saveRow);
     pane.appendChild(intro);
 
-    // ---- Match results ----
-    const mc = el("div", { class: "card" }, []);
-    mc.appendChild(el("h2", {}, ["Gruppespill-resultater"]));
-    const grid = el("div", { class: "group-grid" }, []);
-    Object.keys(cfg.groups || {}).forEach((g) => {
-      const gc = el("div", { class: "group-card" }, []);
-      gc.appendChild(el("h3", {}, ["Gruppe " + g]));
-      cfg.matches.filter((m) => m.group === g).forEach((m) => {
-        const cur = answerKey.matches[m.id] || {};
-        const row = el("div", { class: "match" }, []);
-        row.appendChild(el("div", { class: "meta" }, [`${m.day} ${m.date}`]));
-        row.appendChild(el("div", { class: "team home" }, [el("span", { class: "nm" }, [m.home])]));
-        const h = el("input", { type: "number", min: "0", class: "score-input", value: cur.h ?? "" }, []);
-        const a = el("input", { type: "number", min: "0", class: "score-input", value: cur.a ?? "" }, []);
-        const upd = () => {
-          if (h.value === "" && a.value === "") delete answerKey.matches[m.id];
-          else answerKey.matches[m.id] = { h: h.value.trim(), a: a.value.trim() };
-        };
-        h.addEventListener("input", upd); a.addEventListener("input", upd);
-        row.appendChild(el("div", { class: "vs" }, [h, el("span", { class: "dash" }, ["–"]), a]));
-        row.appendChild(el("div", { class: "team away" }, [el("span", { class: "nm" }, [m.away])]));
-        gc.appendChild(row);
-      });
-      grid.appendChild(gc);
-    });
-    mc.appendChild(grid);
-    pane.appendChild(mc);
+    // ---- Schema fasit (same UI as the player page) ----
+    const layout = el("div", { class: "layout" }, []);
+    const L = el("div", { class: "col-left" }, []);
+    const M = el("div", { class: "col-mid" }, []);
+    const R = el("div", { class: "col-right" }, []);
+    layout.appendChild(L); layout.appendChild(M); layout.appendChild(R);
+    pane.appendChild(layout);
 
-    // ---- Knockout actual teams ----
-    const kc = el("div", { class: "card" }, []);
-    kc.appendChild(el("h2", {}, ["Lag som faktisk gikk videre"]));
-    kc.appendChild(el("p", { class: "sub" }, ["Velg lagene som nådde hver runde."]));
-    (cfg.knockoutRounds || []).forEach((r) => {
-      const block = el("div", { class: "ko-round" }, []);
-      block.appendChild(el("div", { class: "ko-head" }, [el("h3", {}, [r.name]), el("span", { class: "ko-count" }, [`(${r.count})`])]));
-      const chips = el("div", { class: "team-chips" }, []);
-      const sel = answerKey.knockout[r.key] || [];
-      App.allTeams().forEach((team) => {
-        const isSel = sel.includes(team);
-        const chip = el("div", { class: "chip" + (isSel ? " sel" : "") }, []);
-        chip.innerHTML = App.flagImg(team, "w20") + "<span>" + App.escape(team) + "</span>";
-        chip.addEventListener("click", () => {
-          let s = answerKey.knockout[r.key] ? [...answerKey.knockout[r.key]] : [];
-          if (s.includes(team)) s = s.filter((t) => t !== team); else s.push(team);
-          answerKey.knockout[r.key] = s;
-          renderFasit();
-        });
-        chips.appendChild(chip);
-      });
-      block.appendChild(chips);
-      kc.appendChild(block);
-    });
-    pane.appendChild(kc);
+    const store = {
+      getMatch: (id) => answerKey.matches[id],
+      setMatch: (id, h, a) => { if (h === "" && a === "") delete answerKey.matches[id]; else answerKey.matches[id] = { h, a }; },
+      getWinner: (mid) => answerKey.bracketWinners[mid] || "",
+      setWinner: (mid, team) => { if (!team) delete answerKey.bracketWinners[mid]; else answerKey.bracketWinners[mid] = team; },
+      setRounds: (map) => { answerKey.knockout = map; }
+    };
+    SchemaForm.mount({ cfg, store, left: L, mid: M, right: R });
 
-    // ---- Bonus answers ----
-    const bc = el("div", { class: "card" }, []);
-    bc.appendChild(el("h2", {}, ["Fasit for bonusspørsmål"]));
-    (cfg.bonus.questions || []).forEach((q) => {
-      const row = el("div", { class: "q" }, []);
-      row.appendChild(el("div", { class: "qtext" }, [q.text]));
-      const cur = answerKey.bonus[q.id];
-      if (q.type === "duel") {
-        const sel = el("select", {}, []);
-        sel.appendChild(new Option("— ikke satt —", ""));
-        (q.options || []).forEach((o) => sel.appendChild(new Option(o, o)));
-        sel.value = cur || "";
-        sel.addEventListener("change", () => { if (sel.value) answerKey.bonus[q.id] = sel.value; else delete answerKey.bonus[q.id]; });
-        row.appendChild(sel);
-      } else if (q.type === "yesno") {
-        const sel = el("select", {}, []);
-        sel.appendChild(new Option("— ikke satt —", ""));
-        sel.appendChild(new Option("Ja", "J"));
-        sel.appendChild(new Option("Nei", "N"));
-        sel.value = cur || "";
-        sel.addEventListener("change", () => { if (sel.value) answerKey.bonus[q.id] = sel.value; else delete answerKey.bonus[q.id]; });
-        row.appendChild(sel);
-      } else {
-        const inp = el("input", { type: "text", value: cur || "", placeholder: "Fasitsvar …", style: "width:100%" }, []);
-        inp.addEventListener("input", () => { if (inp.value.trim()) answerKey.bonus[q.id] = inp.value.trim(); else delete answerKey.bonus[q.id]; });
-        row.appendChild(inp);
-      }
-      bc.appendChild(row);
+    // ---- Bonus fasit (same buttons as the player page) ----
+    pane.appendChild(el("div", { class: "section-title" }, [el("h2", {}, ["Fasit – bonusspørsmål"])]));
+    const bhost = el("div", {}, []);
+    pane.appendChild(bhost);
+    BonusForm.render(bhost, {
+      cfg,
+      get: (id) => answerKey.bonus[id],
+      set: (id, v) => { if (v) answerKey.bonus[id] = v; else delete answerKey.bonus[id]; },
+      showPoints: false
     });
-    pane.appendChild(bc);
   }
 
   /* ====================================================================
@@ -389,7 +334,7 @@
     row.appendChild(mid);
 
     const typeSel = el("select", {}, []);
-    [["text", "Fritekst"], ["duel", "Duell"], ["yesno", "Ja/Nei"]].forEach(([v, l]) => typeSel.appendChild(new Option(l, v)));
+    [["text", "Fritekst"], ["duel", "Duell"], ["yesno", "Ja/Nei"], ["player", "Spiller (søk)"], ["country", "Land (søk)"]].forEach(([v, l]) => typeSel.appendChild(new Option(l, v)));
     typeSel.value = q.type;
     typeSel.addEventListener("change", () => { q.type = typeSel.value; if (q.type === "duel" && !q.options) q.options = ["A", "B"]; renderBonusCfg(); });
     row.appendChild(typeSel);
@@ -469,6 +414,68 @@
     });
     tc.appendChild(tbtn);
     pane.appendChild(tc);
+
+    // --- players (for searchable "spiller" questions) ---
+    const pc = el("div", { class: "card" }, []);
+    pc.appendChild(el("h2", {}, ["Spillere (søkeliste)"]));
+    pc.appendChild(el("p", { class: "sub" }, [`Brukes i søkefeltet for spiller-spørsmål (toppscorer osv.). Én spiller per linje: «Navn, Land» (land er valgfritt). Nå: ${(cfg.players || []).length} spillere.`]));
+    const parea = el("textarea", { rows: "10", style: "width:100%;font-family:monospace", id: "players-area" }, []);
+    parea.value = (cfg.players || []).map((p) => (p.team ? `${p.name}, ${p.team}` : p.name)).join("\n");
+    pc.appendChild(parea);
+    const pbtn = el("button", { class: "btn", style: "margin-top:.5rem" }, ["Oppdater spillerliste fra tekst over"]);
+    pbtn.addEventListener("click", () => {
+      cfg.players = parea.value.split("\n").map((l) => l.trim()).filter(Boolean).map((l) => {
+        const i = l.indexOf(",");
+        return i < 0 ? { name: l, team: "" } : { name: l.slice(0, i).trim(), team: l.slice(i + 1).trim() };
+      });
+      App.toast(`Spillerliste oppdatert: ${cfg.players.length} spillere (husk lagre).`, "success");
+    });
+    pc.appendChild(pbtn);
+
+    // --- auto-fetch from API-Football (admin only, throttled, saved to DB) ---
+    if (window.API_FOOTBALL_KEY && window.ApiFootball) {
+      const apiBox = el("div", { style: "margin-top:1.2rem;padding-top:1rem;border-top:1px solid var(--line,#ddd)" }, []);
+      apiBox.appendChild(el("p", { class: "sub", style: "margin-bottom:.4rem" }, [
+        "Hent alle spillertropper for lagene i konfigurasjonen automatisk fra API-Football. " +
+        "Listen lagres i databasen og overskriver den manuelt redigerte listen over."
+      ]));
+      apiBox.appendChild(el("p", { style: "color:#b45309;font-weight:700;margin:.2rem 0 .6rem;font-size:.92rem" }, [
+        "⚠ Gratis-API-et tillater bare 100 kall/dag (10/min). Henting tar ~5 minutter. " +
+        "Ikke trykk mer enn nødvendig — hold fanen åpen til det er ferdig."
+      ]));
+      const apiStatus = el("p", { class: "muted", style: "margin:.4rem 0;min-height:1.2em" }, []);
+      const apiBtn = el("button", { class: "btn" }, ["⚽ Hent spillere fra API-Football"]);
+      apiBtn.addEventListener("click", async () => {
+        if (!confirm(
+          "Henter tropper for alle " + (cfg.teams || []).length + " lag fra API-Football.\n" +
+          "Dette bruker ~" + (cfg.teams || []).length + " av dagens 100 API-kall og tar noen minutter.\n\n" +
+          "Ikke gjør dette flere ganger samme dag. Fortsette?"
+        )) return;
+        apiBtn.disabled = true;
+        const origLabel = apiBtn.textContent;
+        apiBtn.textContent = "Henter … (ikke lukk siden)";
+        const setStatus = (t) => { apiStatus.textContent = t; };
+        try {
+          const { players, teamCount, skipped } = await window.ApiFootball.fetchAllPlayers(cfg.teams || [], setStatus);
+          cfg.players = players;
+          setStatus("Lagrer " + players.length + " spillere i databasen …");
+          await DB.saveConfig(cfg);
+          const skipMsg = skipped ? ` (${skipped} lag uten treff)` : "";
+          App.toast("Hentet " + players.length + " spillere fra " + teamCount + " lag og lagret." + skipMsg, "success");
+          renderSetup();
+        } catch (err) {
+          setStatus("");
+          App.toast("Feil ved henting: " + (err && err.message ? err.message : err), "error");
+          apiBtn.disabled = false;
+          apiBtn.textContent = origLabel;
+        }
+      });
+      apiBox.appendChild(apiBtn);
+      apiBox.appendChild(apiStatus);
+      pc.appendChild(apiBox);
+    }
+
+    pane.appendChild(pc);
 
     // --- CSV schedule ---
     const csv = el("div", { class: "card" }, []);

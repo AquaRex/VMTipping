@@ -18,6 +18,7 @@
     // backfill fields that may be missing in an older saved config
     if (!cfg.knockoutBracket) cfg.knockoutBracket = JSON.parse(JSON.stringify(window.DEFAULT_CONFIG.knockoutBracket));
     if (!cfg.knockoutRounds) cfg.knockoutRounds = JSON.parse(JSON.stringify(window.DEFAULT_CONFIG.knockoutRounds));
+    if (!cfg.players || !cfg.players.length) cfg.players = JSON.parse(JSON.stringify(window.DEFAULT_PLAYERS || []));
     App._config = cfg;
     App._answerKey = answerKey;
     return { config: cfg, answerKey };

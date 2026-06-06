@@ -16,6 +16,10 @@ window.DEFAULT_CONFIG = {
   title: "Verdensmesterskapet i fotball 2026",
   bonusTitle: "Bonusspørsmål",
 
+  /* Searchable player list for "spiller"-type bonus questions (editable in
+     Admin → Oppsett → Spillere). Seeded from players.js. */
+  players: window.DEFAULT_PLAYERS || [],
+
   /* ---- Teams (Norwegian name + ISO code used for the flag image) ---------- */
   teams: [
     { name: "Mexico", code: "mx" },
@@ -274,26 +278,26 @@ window.DEFAULT_CONFIG = {
       { id: "fg3", section: "Flest gule kort", type: "duel", points: 2, text: "Flest gule kort", options: ["Skottland", "England"] },
 
       // ---- Individuelle priser (fritekst, 10p) ----
-      { id: "pr1", section: "Individuelle priser", type: "text", points: 10, text: "Toppscorer" },
-      { id: "pr2", section: "Individuelle priser", type: "text", points: 10, text: "Turneringens beste spiller" },
-      { id: "pr3", section: "Individuelle priser", type: "text", points: 10, text: "Spiller med flest assist" },
-      { id: "pr4", section: "Individuelle priser", type: "text", points: 10, text: "Land med flest røde kort" },
-      { id: "pr5", section: "Individuelle priser", type: "text", points: 10, text: "Land med flest gule kort" },
-      { id: "pr6", section: "Individuelle priser", type: "text", points: 10, text: "Land med flest mål" },
-      { id: "pr7", section: "Individuelle priser", type: "text", points: 10, text: "Land med minst innslupne" },
-      { id: "pr8", section: "Individuelle priser", type: "text", points: 10, text: "Gullhansken (beste keeper)" },
+      { id: "pr1", section: "Individuelle priser", type: "player", points: 10, text: "Toppscorer" },
+      { id: "pr2", section: "Individuelle priser", type: "player", points: 10, text: "Turneringens beste spiller" },
+      { id: "pr3", section: "Individuelle priser", type: "player", points: 10, text: "Spiller med flest assist" },
+      { id: "pr4", section: "Individuelle priser", type: "country", points: 10, text: "Land med flest røde kort" },
+      { id: "pr5", section: "Individuelle priser", type: "country", points: 10, text: "Land med flest gule kort" },
+      { id: "pr6", section: "Individuelle priser", type: "country", points: 10, text: "Land med flest mål" },
+      { id: "pr7", section: "Individuelle priser", type: "country", points: 10, text: "Land med minst innslupne" },
+      { id: "pr8", section: "Individuelle priser", type: "player", points: 10, text: "Gullhansken (beste keeper)" },
 
       // ---- Simen Berntsens Saftige Bonusspørsmål (5p) ----
-      { id: "si1",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "text",  points: 5, text: "Første land som får gult kort?" },
-      { id: "si2",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "text",  points: 5, text: "Første land som får rødt kort?" },
-      { id: "si3",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "text",  points: 5, text: "Hvilket land scorer det første målet?" },
-      { id: "si4",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "text",  points: 5, text: "Hvilket land scorer det siste målet?" },
-      { id: "si5",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "text",  points: 5, text: "Første VAR-avgjørelse?* (kamp)" },
-      { id: "si6",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "yesno", points: 5, text: "Blir VAR brukt i finalen?*" },
-      { id: "si7",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "yesno", points: 5, text: "8 eller flere mål i samme kamp?" },
-      { id: "si8",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "text",  points: 5, text: "Hvilket land får første straffe?" },
-      { id: "si9",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "yesno", points: 5, text: "Vil det bli straffekonk ila. mesterskapet?" },
-      { id: "si10", section: "Simen Berntsens Saftige Bonusspørsmål", type: "text",  points: 5, text: "Hvilket land scorer færrest mål?" },
+      { id: "si1",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "country", points: 5, text: "Første land som får gult kort?" },
+      { id: "si2",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "country", points: 5, text: "Første land som får rødt kort?" },
+      { id: "si3",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "country", points: 5, text: "Hvilket land scorer det første målet?" },
+      { id: "si4",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "country", points: 5, text: "Hvilket land scorer det siste målet?" },
+      { id: "si5",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "text",    points: 5, text: "Første VAR-avgjørelse?* (kamp)" },
+      { id: "si6",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "yesno",   points: 5, text: "Blir VAR brukt i finalen?*" },
+      { id: "si7",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "yesno",   points: 5, text: "8 eller flere mål i samme kamp?" },
+      { id: "si8",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "country", points: 5, text: "Hvilket land får første straffe?" },
+      { id: "si9",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "yesno",   points: 5, text: "Vil det bli straffekonk ila. mesterskapet?" },
+      { id: "si10", section: "Simen Berntsens Saftige Bonusspørsmål", type: "country", points: 5, text: "Hvilket land scorer færrest mål?" },
       { id: "si11", section: "Simen Berntsens Saftige Bonusspørsmål", type: "yesno", points: 5, text: "Banestorming / tilskuer på banen?" },
 
       // ---- Norge (5p) ----
@@ -302,8 +306,8 @@ window.DEFAULT_CONFIG = {
       { id: "no3",  section: "Norge", type: "yesno", points: 5, text: "Scorer Norge mål direkte på frispark eller straffe i gruppespill?" },
       { id: "no4",  section: "Norge", type: "yesno", points: 5, text: "Går Norge videre til 16-delsfinalen?" },
       { id: "no5",  section: "Norge", type: "yesno", points: 5, text: "Scorer Norge i begge omgangene i åpningskampen?" },
-      { id: "no6",  section: "Norge", type: "text",  points: 5, text: "Norges første målscorer?" },
-      { id: "no7",  section: "Norge", type: "text",  points: 5, text: "Norges siste målscorer?" },
+      { id: "no6",  section: "Norge", type: "player", points: 5, text: "Norges første målscorer?" },
+      { id: "no7",  section: "Norge", type: "player", points: 5, text: "Norges siste målscorer?" },
       { id: "no8",  section: "Norge", type: "text",  points: 5, text: "Hvor langt kommer Norge i VM?" },
       { id: "no9",  section: "Norge", type: "yesno", points: 5, text: "Får en spiller på Norge rødt kort under mesterskapet?" },
       { id: "no10", section: "Norge", type: "yesno", points: 5, text: "Blir det selvmål i en av Norges kamper under mesterskapet?" }

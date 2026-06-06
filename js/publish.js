@@ -30,4 +30,16 @@
   }
 
   window.publishDraft = publish;
+
+  // Wire up a "Nullstill" button if present — clears the saved draft.
+  window.wireResetButton = function () {
+    const btn = document.getElementById("reset-btn");
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      if (confirm("Nullstille hele skjemaet ditt (alle resultater, sluttspill og bonussvar)? Dette kan ikke angres.")) {
+        Draft.reset();
+        location.reload();
+      }
+    });
+  };
 })();

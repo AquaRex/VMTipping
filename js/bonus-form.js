@@ -1,0 +1,83 @@
+/* =============================================================================
+ *  bonus-form.js  —  shared renderer for the bonus questions (duel / yes-no /
+ *  free text), grouped by section. Used by the player bonus page and by the
+ *  admin "Fasit" tab so the fasit is entered exactly like a normal answer.
+ *
+ *  opts: { cfg, get(qid)->value, set(qid,value), onChange, showPoints }
+ * ===========================================================================*/
+(function () {
+  function render(container, opts) {
+    const { cfg, get, set, onChange } = opts;
+    const showPoints = opts.showPoints !== false;
+    const el = App.el;
+    const bonus = cfg.bonus || { questions: [] };
+    container.innerHTML = "";
+
+    const order = (bonus.sections && bonus.sections.length) ? bonus.sections.slice() : [];
+    const bySection = {};
+    bonus.questions.forEach((q) => {
+      const s = q.section || "Annet";
+      (bySection[s] = bySection[s] || []).push(q);
+      if (!order.includes(s)) order.push(s);
+    });
+
+    order.forEach((section) => {
+      const qs = bySection[section];
+      if (!qs || !qs.length) return;
+      const total = qs.reduce((sum, q) => sum + (q.points || 0), 0);
+      const title = el("div", { class: "section-title" }, [el("h2", {}, [section])]);
+      if (showPoints) title.appendChild(el("span", { class: "pts" }, [`(${total}p totalt)`]));
+      container.appendChild(title);
+      const card = el("div", { class: "card" }, []);
+      qs.forEach((q) => card.appendChild(renderQ(q)));
+      container.appendChild(card);
+    });
+    if (bonus.footnote) container.appendChild(el("p", { class: "muted", style: "font-size:.85rem" }, [bonus.footnote]));
+
+    function renderQ(q) {
+      const wrap = el("div", { class: "q" }, []);
+      const label = el("div", { class: "qtext" }, [q.text]);
+      if (showPoints && q.points != null) label.appendChild(el("span", { class: "qpts" }, [`${q.points}p`]));
+      wrap.appendChild(label);
+      const current = get(q.id);
+
+      if (q.type === "duel") {
+        const row = el("div", { class: "duel" }, []);
+        (q.options || []).forEach((opt) => {
+          const b = el("div", { class: "opt" + (current === opt ? " sel" : "") }, [opt]);
+          b.addEventListener("click", () => { set(q.id, current === opt ? "" : opt); rerender(); });
+          row.appendChild(b);
+        });
+        wrap.appendChild(row);
+      } else if (q.type === "yesno") {
+        const row = el("div", { class: "yesno" }, []);
+        [["Ja", "J"], ["Nei", "N"]].forEach(([lbl, val]) => {
+          const b = el("div", { class: "opt" + (current === val ? " sel" : "") }, [lbl]);
+          b.addEventListener("click", () => { set(q.id, current === val ? "" : val); rerender(); });
+          row.appendChild(b);
+        });
+        wrap.appendChild(row);
+      } else if (q.type === "player" || q.type === "country") {
+        const list = q.type === "country"
+          ? (cfg.teams || []).map((t) => ({ label: t.name, sub: "" }))
+          : (cfg.players || []).map((p) => ({ label: p.name, sub: p.team }));
+        const ac = window.makeAutocomplete({
+          value: current || "",
+          options: list,
+          placeholder: q.type === "country" ? "Søk etter land …" : "Søk etter spiller …",
+          onChange: (v) => { set(q.id, (v || "").trim()); if (onChange) onChange(); }
+        });
+        wrap.appendChild(ac);
+      } else {
+        const inp = el("input", { type: "text", value: current || "", placeholder: "Skriv svaret …", style: "width:100%" }, []);
+        inp.addEventListener("input", () => { set(q.id, inp.value.trim()); if (onChange) onChange(); });
+        wrap.appendChild(inp);
+      }
+
+      function rerender() { wrap.replaceWith(renderQ(q)); if (onChange) onChange(); }
+      return wrap;
+    }
+  }
+
+  window.BonusForm = { render };
+})();

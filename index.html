@@ -8,7 +8,7 @@
 </head>
 <body>
   <nav id="nav"></nav>
-  <main class="wrap">
+  <main class="wrap wrap-wide">
     <div class="page-head">
       <h1 id="page-title">Verdensmesterskapet i fotball 2026</h1>
       <p>Tipp resultatet i gruppespillet og hvilke lag som går videre. Husk å publisere når du er ferdig — du kan også fylle ut <a href="bonus.html">Bonusspørsmål</a>.</p>
@@ -23,6 +23,7 @@
 
     <div class="sticky-actions">
       <span id="progress" class="muted"></span>
+      <button class="btn btn-ghost btn-sm" id="reset-btn">Nullstill</button>
       <span class="spacer"></span>
       <a class="btn" href="bonus.html">Til bonusspørsmål →</a>
       <button class="btn btn-primary" id="publish-btn">Publiser svarene mine</button>
@@ -30,12 +31,15 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/players.js"></script>
   <script src="js/config.js"></script>
   <script src="js/supabase-config.js"></script>
   <script src="js/db.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/autocomplete.js"></script>
   <script src="js/draft.js"></script>
   <script src="js/publish.js"></script>
+  <script src="js/schema-form.js"></script>
   <script src="js/tippeskjema.js"></script>
 </body>
 </html>

@@ -28,16 +28,17 @@
       const a = akM[m.id];
       const haveKey = a && a.h !== "" && a.a !== "" && a.h != null && a.a != null;
       const ph = +p.h, pa = +p.a;
-      const label = `${m.home} ${ph}–${pa} ${m.away}`;
+      const q = `${m.home} – ${m.away}`;
+      const pick = `${ph}–${pa}`;
       // outcome
       matchItems.push({
-        key: `m${m.id}o`, label: label + "  (utfall)", points: cfg.scoring.groupOutcome,
+        key: `m${m.id}o`, label: q + " (utfall)", pick, points: cfg.scoring.groupOutcome,
         auto: haveKey ? (sign(ph - pa) === sign(+a.h - +a.a)) : null,
         keyInfo: haveKey ? `fasit ${a.h}–${a.a}` : "ingen fasit"
       });
       // exact
       matchItems.push({
-        key: `m${m.id}e`, label: label + "  (eksakt)", points: cfg.scoring.groupExact,
+        key: `m${m.id}e`, label: q + " (eksakt)", pick, points: cfg.scoring.groupExact,
         auto: haveKey ? (ph === +a.h && pa === +a.a) : null,
         keyInfo: haveKey ? `fasit ${a.h}–${a.a}` : "ingen fasit"
       });
@@ -51,7 +52,7 @@
       const actual = akK[r.key] || [];
       const haveKey = actual.length > 0;
       const items = picks.map((team) => ({
-        key: `k:${r.key}:${team}`, label: team, points: r.points,
+        key: `k:${r.key}:${team}`, label: "", pick: team, points: r.points,
         auto: haveKey ? actual.includes(team) : null,
         keyInfo: haveKey ? "fasit satt" : "ingen fasit"
       }));
@@ -67,7 +68,7 @@
       const haveKey = key != null && key !== "";
       const shown = q.type === "yesno" ? (ans === "J" ? "Ja" : "Nei") : ans;
       bonusItems.push({
-        key: `b${q.id}`, label: `${q.text}: ${shown}`, points: q.points,
+        key: `b${q.id}`, label: q.text, pick: shown, points: q.points,
         auto: haveKey ? (norm(ans) === norm(key)) : null,
         keyInfo: haveKey ? `fasit: ${q.type === "yesno" ? (norm(key) === "j" ? "Ja" : "Nei") : key}` : "ingen fasit"
       });

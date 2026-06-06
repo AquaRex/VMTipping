@@ -38,7 +38,7 @@ Admin-passord: **4054** (kan endres i `js/supabase-config.js`).
 Åpne `js/supabase-config.js` og lim inn de to verdiene:
 
 ```js
-window.SUPABASE_URL      = "https://dittprosjekt.supabase.co";
+window.SUPABASE_URL      = "https://gmxydynthqgsmvkszzba.supabase.co";
 window.SUPABASE_ANON_KEY = "eyJhbGciOi...din lange nøkkel...";
 window.ADMIN_PASSWORD    = "4054";
 ```
@@ -93,6 +93,27 @@ Trykker man publiser flere ganger, oppdateres samme skjema.
 - **⚙️ Oppsett** – endre årstall, poengregler, lag/flagg, og last opp et nytt
   **kampoppsett (CSV)** for neste år. Last gjerne ned dagens oppsett som mal
   først, rediger den, og last opp.
+
+### Spillerliste (søkbare spørsmål)
+Spørsmål som «Toppscorer» og «Norges målscorer» er **søkefelt** – man skriver og
+velger et navn fra en liste, så fasit og svar alltid staves likt (ingen feil pga.
+skrivefeil). Spørsmål om land («Land med flest mål» osv.) søker i landslisten.
+
+Siden kommer med en startliste på ~400 kjente spillere (ikke komplette tropper).
+Du kan oppdatere den på to måter i **Admin → Oppsett → Spillere**:
+
+- **Automatisk fra API-Football** (anbefalt): klikk **«⚽ Hent spillere fra
+  API-Football»**. Da hentes alle troppene for VM-lagene og lagres i databasen.
+  Krever en API-nøkkel i `js/supabase-config.js` (`window.API_FOOTBALL_KEY`).
+  > ⚠ **Ikke spam knappen.** Gratis-nøkkelen tillater bare **100 kall/dag**
+  > (10/min), og ett hent bruker ~1 kall per lag. Det tar derfor noen minutter –
+  > hold fanen åpen til det er ferdig. Du trenger normalt å gjøre dette bare én
+  > gang (og evt. på nytt når de endelige troppene er klare). Vanlige besøkende
+  > henter aldri fra API-et – de leser bare den lagrede listen fra databasen.
+- **Manuelt**: lim inn én spiller per linje som `Navn, Land` (land er valgfritt)
+  og klikk «Oppdater spillerliste fra tekst over». Nyttig for å rette enkeltnavn.
+
+Listen lagres i databasen sammen med resten av oppsettet, så alle ser den samme.
 
 ### Neste år (nytt mesterskap)
 1. Admin → Oppsett → last ned CSV-malen, fyll inn neste års kamper, last opp.
