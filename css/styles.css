@@ -139,10 +139,10 @@ button:hover, .btn:hover { background: #2a4356; }
 .btn-row { display: flex; gap: .6rem; flex-wrap: wrap; }
 
 .sticky-actions {
-  position: sticky; bottom: 0; z-index: 30;
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
   display: flex; gap: .8rem; align-items: center; flex-wrap: wrap;
   background: rgba(15,25,35,.95); backdrop-filter: blur(8px);
-  border-top: 1px solid var(--line); padding: .8rem 1.1rem; margin: 1.5rem -1.1rem -5rem;
+  border-top: 1px solid var(--line); padding: .8rem 1.1rem;
 }
 .sticky-actions .spacer { flex: 1; }
 
@@ -229,6 +229,11 @@ input.sc:hover { border-color: var(--accent-2); }
   background: var(--bg-2); border: 1px solid var(--line); color: var(--text);
   font-size: .85rem; user-select: none;
 }
+select.btn-select {
+  border-radius: 9px; padding: .4rem .65rem;
+  font-weight: 700; font-size: .88rem; cursor: pointer;
+  background: var(--panel-2); border-color: var(--line);
+}
 .chip:hover { border-color: var(--accent); }
 .chip.sel { background: var(--accent); border-color: var(--accent-2); color: #fff; }
 .chip.disabled { opacity: .35; cursor: not-allowed; }
@@ -294,6 +299,9 @@ input.sc:hover { border-color: var(--accent-2); }
 .q .qtext { font-weight: 600; margin-bottom: .45rem; }
 .q .qtext .qpts { color: var(--gold); font-weight: 700; font-size: .8rem; margin-left: .4rem; }
 .duel, .yesno { display: flex; gap: .6rem; flex-wrap: wrap; }
+.match-pick { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.match-pick .ac-wrap { flex: 1; min-width: 140px; }
+.match-vs { color: var(--muted); font-weight: 700; font-size: .9rem; flex-shrink: 0; }
 .opt {
   text-align: center; padding: .55rem .7rem;
   border-radius: 9px; border: 1px solid var(--line); background: var(--bg-2); cursor: pointer; font-weight: 600;

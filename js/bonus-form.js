@@ -66,6 +66,31 @@
           row.appendChild(b);
         });
         wrap.appendChild(row);
+      } else if (q.type === "match") {
+        const countryList = (cfg.teams || []).map((t) => ({ label: t.name, sub: "" }));
+        const parts = (current || "").split(" vs ");
+        let v1 = parts[0] || "", v2 = parts[1] || "";
+        const save = () => {
+          const val = v1 && v2 ? v1 + " vs " + v2 : "";
+          set(q.id, val);
+          if (onChange) onChange();
+        };
+        const row = el("div", { class: "match-pick" }, []);
+        let ac2El;
+        const ac1 = window.makeAutocomplete({
+          value: v1, options: countryList, placeholder: "Hjemmelag …", disabled: readonly,
+          onChange: (v) => { v1 = v; },
+          onCommit: () => { save(); if (ac2El) ac2El.querySelector("input").focus(); }
+        });
+        const vs = el("span", { class: "match-vs" }, ["vs"]);
+        const ac2 = window.makeAutocomplete({
+          value: v2, options: countryList, placeholder: "Bortelag …", disabled: readonly,
+          onChange: (v) => { v2 = v; save(); },
+          onCommit: () => { save(); }
+        });
+        ac2El = ac2;
+        row.appendChild(ac1); row.appendChild(vs); row.appendChild(ac2);
+        wrap.appendChild(row);
       } else if (q.type === "player" || q.type === "country" || q.type === "custom" || q.type === "customselect") {
         const isSelect = q.type === "customselect";
         const list = q.type === "country"

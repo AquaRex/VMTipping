@@ -107,7 +107,7 @@
       const spacer = el("span", { style: "flex:1" }, []);
       btnRow.appendChild(spacer);
       btnRow.appendChild(el("label", { for: "gruppe-filter", style: "color:var(--muted);font-size:.85rem" }, ["Gruppe:"]));
-      const sel = el("select", { id: "gruppe-filter", class: "chip" }, []);
+      const sel = el("select", { id: "gruppe-filter", class: "btn-select" }, []);
       sel.appendChild(new Option("Alle grupper", ""));
       grupper.forEach(g => sel.appendChild(new Option(g, g)));
       sel.addEventListener("change", () => { activeGruppe = sel.value; renderTable(); });
@@ -444,7 +444,7 @@
     row.appendChild(mid);
 
     const typeSel = el("select", {}, []);
-    [["text", "Fritekst"], ["duel", "Duell"], ["yesno", "Ja/Nei"], ["player", "Spiller (søk)"], ["country", "Land (søk)"], ["custom", "Egendefinert (søk)"], ["customselect", "Egendefinert"], ["custombuttons", "Egendefinert (knapper)"]].forEach(([v, l]) => typeSel.appendChild(new Option(l, v)));
+    [["text", "Fritekst"], ["duel", "Duell"], ["yesno", "Ja/Nei"], ["player", "Spiller (søk)"], ["country", "Land (søk)"], ["match", "Kamp"], ["custom", "Egendefinert (søk)"], ["customselect", "Egendefinert"], ["custombuttons", "Egendefinert (knapper)"]].forEach(([v, l]) => typeSel.appendChild(new Option(l, v)));
     typeSel.value = q.type;
     typeSel.addEventListener("change", () => { q.type = typeSel.value; if (q.type === "duel" && !q.options) q.options = ["A", "B"]; if (["custom", "customselect", "custombuttons"].includes(q.type) && !q.options) q.options = []; renderBonusCfg(); });
     row.appendChild(typeSel);

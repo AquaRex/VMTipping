@@ -19,7 +19,7 @@
 
     let items = [], hi = -1;
 
-    const commit = (v) => { input.value = v; if (opts.onChange) opts.onChange(v); };
+    const commit = (v) => { input.value = v; if (opts.onChange) opts.onChange(v); if (opts.onCommit) opts.onCommit(v); };
     const close = () => { menu.classList.add("hidden"); hi = -1; };
     const highlight = () => [...menu.children].forEach((c, i) => c.classList.toggle("hi", i === hi));
 
