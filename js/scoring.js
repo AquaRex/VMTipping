@@ -11,11 +11,11 @@
   function buildScorables(cfg, answerKey, entry) {
     const ak = answerKey || {};
     const akM = ak.matches || {};
-    const akK = ak.knockout || {};
+    const akKW = ak.bracketWinners || {};   // fasit: winner per knockout match
     const akB = ak.bonus || {};
     const pred = (entry && entry.predictions) || {};
     const pM = pred.matches || {};
-    const pK = pred.knockout || {};
+    const pKW = (pred.bracket && pred.bracket.winners) || {}; // entry: winner per match
     const pB = pred.bonus || {};
 
     const groups = []; // { title, items: [...] }
@@ -45,19 +45,49 @@
     });
     if (matchItems.length) groups.push({ title: "Gruppespill", items: matchItems });
 
-    /* ---- Knockout team picks ---- */
-    (cfg.knockoutRounds || []).forEach((r) => {
-      const picks = pK[r.key] || [];
-      if (!picks.length) return;
-      const actual = akK[r.key] || [];
-      const haveKey = actual.length > 0;
-      const items = picks.map((team) => ({
-        key: `k:${r.key}:${team}`, label: "", pick: team, points: r.points,
-        auto: haveKey ? actual.includes(team) : null,
-        keyInfo: haveKey ? "fasit satt" : "ingen fasit"
-      }));
-      groups.push({ title: r.name, items });
-    });
+    /* ---- Knockout: one scorable per MATCH, by predicted vs actual winner ----
+     * Each knockout match awards its round's points if the predicted winner of
+     * that match equals the actual (fasit) winner. No double-counting: one match
+     * = one award (the team that advances). Round points come from cfg.knockoutRounds. */
+    const bracket = cfg.knockoutBracket;
+    if (bracket && bracket.rounds) {
+      const pointsForRound = {};
+      (cfg.knockoutRounds || []).forEach((r) => { pointsForRound[r.key] = r.points; });
+      bracket.rounds.forEach((round) => {
+        const pts = pointsForRound[round.key] != null ? pointsForRound[round.key] : 0;
+        const items = [];
+        (round.matchIds || []).forEach((mid) => {
+          const predWin = pKW[mid];
+          if (!predWin) return; // user didn't pick this match
+          const actualWin = akKW[mid];
+          const haveKey = actualWin != null && actualWin !== "";
+          items.push({
+            key: `kw:${mid}`, label: "Kamp " + mid, pick: predWin, points: pts,
+            auto: haveKey ? (norm(predWin) === norm(actualWin)) : null,
+            keyInfo: haveKey ? `fasit: ${actualWin}` : "ingen fasit"
+          });
+        });
+        if (items.length) groups.push({ title: round.name, items });
+      });
+
+      // Champion bonus: the winner of the FINAL match. Scored separately with the
+      // "winner" round's points (e.g. 15p) on top of the final-match points.
+      const winnerRound = (cfg.knockoutRounds || []).find((r) => r.key === "winner");
+      const finalRound = bracket.rounds[bracket.rounds.length - 1];
+      const finalId = finalRound && finalRound.matchIds && finalRound.matchIds[0];
+      if (winnerRound && finalId != null) {
+        const predWin = pKW[finalId];
+        if (predWin) {
+          const actualWin = akKW[finalId];
+          const haveKey = actualWin != null && actualWin !== "";
+          groups.push({ title: winnerRound.name, items: [{
+            key: `kw:winner`, label: "Mester", pick: predWin, points: winnerRound.points,
+            auto: haveKey ? (norm(predWin) === norm(actualWin)) : null,
+            keyInfo: haveKey ? `fasit: ${actualWin}` : "ingen fasit"
+          }]});
+        }
+      }
+    }
 
     /* ---- Bonus ---- */
     const bonusItems = [];
