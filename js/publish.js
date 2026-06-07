@@ -74,7 +74,6 @@
     btn.style.cssText = "margin-left:.6rem;align-self:center";
     btn.textContent = "🔓 Lås opp";
     btn.addEventListener("click", () => {
-      if (!confirm("Låse opp skjemaet? Du kan fylle inn på nytt og publisere igjen (vil lagres som en ny innlevering).")) return;
       Draft.unlock();
       location.reload();
     });

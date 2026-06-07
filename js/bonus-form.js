@@ -80,7 +80,7 @@
         const ac1 = window.makeAutocomplete({
           value: v1, options: countryList, placeholder: "Hjemmelag …", disabled: readonly,
           onChange: (v) => { v1 = v; },
-          onCommit: () => { save(); if (ac2El) ac2El.querySelector("input").focus(); }
+          onCommit: (v, reason) => { save(); if (reason === "enter" && ac2El) ac2El.querySelector("input").focus(); }
         });
         const vs = el("span", { class: "match-vs" }, ["vs"]);
         const ac2 = window.makeAutocomplete({

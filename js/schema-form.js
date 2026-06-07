@@ -354,7 +354,6 @@
       mid.innerHTML = "";
       const card = el("div", { class: "card stand-card" }, []);
       card.appendChild(el("h2", {}, ["Tabeller"]));
-      card.appendChild(el("p", { class: "sub" }, ["Oppdateres automatisk. Topp 2 (blå) går videre, beste 3.-plasser kjemper om plass."]));
       Object.keys(cfg.groups).forEach((g) => card.appendChild(standTable("Gruppe " + g, standings[g], 2, false)));
       const thirds = Object.keys(cfg.groups).map((g) => standings[g][2]).filter(Boolean).sort(cmp);
       card.appendChild(standTable("3. plasser", thirds, 8, true));

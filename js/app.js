@@ -28,8 +28,12 @@
      flag emoji which don't render on Windows). */
   App.flagUrl = function (teamName, size) {
     const t = (App._config.teams || []).find((x) => x.name === teamName);
-    if (!t || !t.code) return "";
-    return `https://flagcdn.com/${size || "w40"}/${t.code}.png`;
+    // Prefer the code stored on the team; otherwise look the name up in the
+    // master flag map so any (current or future) country still gets a flag.
+    let code = (t && t.code) || "";
+    if (!code && window.flagCodeForName) code = window.flagCodeForName(teamName);
+    if (!code) return "";
+    return `https://flagcdn.com/${size || "w40"}/${code}.png`;
   };
 
   App.flagImg = function (teamName, size) {

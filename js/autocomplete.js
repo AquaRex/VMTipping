@@ -19,7 +19,7 @@
 
     let items = [], hi = -1;
 
-    const commit = (v) => { input.value = v; if (opts.onChange) opts.onChange(v); if (opts.onCommit) opts.onCommit(v); };
+    const commit = (v, reason) => { input.value = v; if (opts.onChange) opts.onChange(v); if (opts.onCommit) opts.onCommit(v, reason); };
     const close = () => { menu.classList.add("hidden"); hi = -1; };
     const highlight = () => [...menu.children].forEach((c, i) => c.classList.toggle("hi", i === hi));
 
@@ -48,7 +48,8 @@
       if (menu.classList.contains("hidden")) return;
       if (e.key === "ArrowDown") { e.preventDefault(); hi = Math.min(hi + 1, items.length - 1); highlight(); }
       else if (e.key === "ArrowUp") { e.preventDefault(); hi = Math.max(hi - 1, 0); highlight(); }
-      else if (e.key === "Enter") { if (items[hi]) { e.preventDefault(); commit(items[hi].label); close(); } }
+      else if (e.key === "Enter") { if (items[hi]) { e.preventDefault(); commit(items[hi].label, "enter"); close(); } }
+      else if (e.key === "Tab") { if (items[hi]) { commit(items[hi].label, "tab"); close(); } } // confirm, let focus move on
       else if (e.key === "Escape") { close(); }
     });
 
@@ -91,6 +92,7 @@
       if (e.key === "ArrowDown") { e.preventDefault(); hi = Math.min(hi + 1, allItems.length - 1); highlight(); }
       else if (e.key === "ArrowUp") { e.preventDefault(); hi = Math.max(hi - 1, 0); highlight(); }
       else if (e.key === "Enter") { if (allItems[hi]) { e.preventDefault(); commit(allItems[hi].label); } }
+      else if (e.key === "Tab") { if (allItems[hi]) commit(allItems[hi].label); } // confirm, let focus move on
       else if (e.key === "Escape") { menu.classList.add("hidden"); }
     });
 

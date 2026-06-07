@@ -565,9 +565,46 @@
   /* ====================================================================
    *  TAB: Oppsett (season, scoring, teams, CSV)
    * ==================================================================*/
+  // Persist config silently (no toast / no full re-render) — used for the
+  // "settings always save" behaviour in the Oppsett sub-tabs.
+  async function autosaveConfig() {
+    try { await DB.saveConfig(cfg); } catch (e) { console.warn("autosave failed", e); }
+  }
+
+  let setupSubtab = "generelt"; // remembered across re-renders
+
   function renderSetup() {
     const pane = document.getElementById("tab-setup");
     pane.innerHTML = "";
+
+    // --- sub-tab navigation ---
+    const subnav = el("div", { class: "nav-links", style: "margin-bottom:1.1rem" }, []);
+    const panes = {
+      generelt:  el("div", {}, []),
+      sluttspill: el("div", { class: "hidden" }, []),
+      ranking:   el("div", { class: "hidden" }, [])
+    };
+    const subtabs = [
+      ["generelt", "⚙️ Generelt"],
+      ["sluttspill", "🏆 Sluttspill"],
+      ["ranking", "📊 Ranking"]
+    ];
+    const links = {};
+    subtabs.forEach(([key, label]) => {
+      const a = el("a", { href: "#", class: setupSubtab === key ? "active" : "" }, [label]);
+      a.addEventListener("click", (e) => {
+        e.preventDefault();
+        setupSubtab = key;
+        Object.keys(links).forEach((k) => links[k].classList.toggle("active", k === key));
+        Object.keys(panes).forEach((k) => panes[k].classList.toggle("hidden", k !== key));
+      });
+      links[key] = a;
+      subnav.appendChild(a);
+    });
+    pane.appendChild(subnav);
+    Object.values(panes).forEach((p) => pane.appendChild(p));
+    // apply remembered selection
+    Object.keys(panes).forEach((k) => panes[k].classList.toggle("hidden", k !== setupSubtab));
 
     // --- general ---
     const gen = el("div", { class: "card" }, []);
@@ -575,7 +612,7 @@
     const seasonIn = field(gen, "Sesong / år", cfg.season, (v) => cfg.season = v);
     field(gen, "Tittel (tippeskjema)", cfg.title, (v) => cfg.title = v);
     field(gen, "Bonus-frist", cfg.bonus.deadline || "", (v) => cfg.bonus.deadline = v);
-    pane.appendChild(gen);
+    panes.generelt.appendChild(gen);
 
     // --- scoring ---
     const sc = el("div", { class: "card" }, []);
@@ -587,17 +624,20 @@
       const row = el("div", { class: "btn-row", style: "margin-bottom:.4rem;align-items:center" }, []);
       const nm = el("input", { type: "text", value: r.name, style: "flex:1" }, []);
       nm.addEventListener("input", () => r.name = nm.value);
+      nm.addEventListener("change", autosaveConfig);
       const cnt = el("input", { type: "number", min: "1", class: "pts-in", value: r.count, title: "Antall lag" }, []);
       cnt.addEventListener("input", () => r.count = +cnt.value || 1);
+      cnt.addEventListener("change", autosaveConfig);
       const pt = el("input", { type: "number", min: "0", class: "pts-in", value: r.points, title: "Poeng pr lag" }, []);
       pt.addEventListener("input", () => r.points = +pt.value || 0);
+      pt.addEventListener("change", autosaveConfig);
       row.appendChild(nm);
       row.appendChild(el("span", { class: "muted" }, ["lag:"])); row.appendChild(cnt);
       row.appendChild(el("span", { class: "muted" }, ["poeng:"])); row.appendChild(pt);
       sc.appendChild(row);
     });
 
-    pane.appendChild(sc);
+    panes.generelt.appendChild(sc);
 
     // --- knockout bracket seed editor -------------------------------------
     // The CSV import auto-detects the bracket SIZE (rounds) and dates; the exact
@@ -607,31 +647,30 @@
     const bc = el("div", { class: "card" }, []);
     bc.appendChild(el("h2", {}, ["Sluttspill — oppsett av kamper"]));
 
-    // --- preset chooser ---
+    // --- preset chooser (applies + saves immediately on selection) ---
     const presets = window.BRACKET_PRESETS || {};
     if (Object.keys(presets).length) {
       const prow = el("div", { class: "btn-row", style: "margin-bottom:.8rem;align-items:center;gap:.5rem" }, []);
       prow.appendChild(el("span", { class: "muted" }, ["Forhåndsoppsett:"]));
-      const sel = el("select", { style: "flex:1;min-width:0" }, [el("option", { value: "" }, ["— velg —"])]);
+      const sel = el("select", { class: "btn-select", style: "flex:1;min-width:0" }, [el("option", { value: "" }, ["— velg —"])]);
       Object.keys(presets).forEach((k) => sel.appendChild(el("option", { value: k }, [presets[k].name || k])));
-      const applyP = el("button", { class: "btn" }, ["Bruk"]);
-      applyP.addEventListener("click", () => {
-        const k = sel.value; if (!k) { App.toast("Velg et forhåndsoppsett først.", "info"); return; }
+      if (cfg.knockoutPreset && presets[cfg.knockoutPreset]) sel.value = cfg.knockoutPreset;
+      sel.addEventListener("change", async () => {
+        const k = sel.value; if (!k) return;
         const p = presets[k];
         const gc = Object.keys(cfg.groups || {}).length;
-        const warn = (p.groupCount && gc && p.groupCount !== gc)
-          ? `\n\nMerk: dette oppsettet er for ${p.groupCount} grupper, men du har ${gc}. Last opp riktig kampoppsett (CSV) først.`
-          : "";
-        if (!confirm(`Erstatte sluttspill-bracket og poengrunder med «${p.name || k}»?${warn}`)) return;
+        cfg.knockoutPreset = k;
         cfg.knockoutBracket = JSON.parse(JSON.stringify(p.knockoutBracket));
         cfg.knockoutRounds = JSON.parse(JSON.stringify(p.knockoutRounds));
         if (p.thirdPlaceColumns) cfg.thirdPlaceColumns = p.thirdPlaceColumns; else delete cfg.thirdPlaceColumns;
         if (p.thirdPlaceTable) cfg.thirdPlaceTable = JSON.parse(JSON.stringify(p.thirdPlaceTable)); else delete cfg.thirdPlaceTable;
-        App.toast(`«${p.name || k}» lastet. Husk å lagre.`, "success");
+        await autosaveConfig();
+        const warn = (p.groupCount && gc && p.groupCount !== gc)
+          ? ` (OBS: oppsettet er for ${p.groupCount} grupper, du har ${gc})` : "";
+        App.toast(`«${p.name || k}» tatt i bruk og lagret.${warn}`, "success");
         renderSetup();
       });
       prow.appendChild(sel);
-      prow.appendChild(applyP);
       bc.appendChild(prow);
     }
 
@@ -668,6 +707,7 @@
           if (v) { delete m[side].from; delete m[side].fromLoser; m[side].seed = v; }
           else { delete m[side].seed; }
         });
+        inp.addEventListener("change", autosaveConfig); // persist on blur/commit
         return inp;
       };
 
@@ -684,13 +724,13 @@
       });
 
       const hint = el("p", { class: "sub", style: "margin-top:.6rem" }, [
-        "Senere runder fylles automatisk fra vinnerne. Husk å lagre nederst på siden."
+        "Senere runder fylles automatisk fra vinnerne. Endringer lagres automatisk."
       ]);
       bc.appendChild(hint);
     } else {
       bc.appendChild(el("p", { class: "muted" }, ["Ingen sluttspill-bracket er satt opp ennå. Last opp et kampoppsett (CSV) først."]));
     }
-    pane.appendChild(bc);
+    panes.sluttspill.appendChild(bc);
 
     // --- players (for searchable "spiller" questions) ---
     const pc = el("div", { class: "card" }, []);
@@ -700,12 +740,13 @@
     parea.value = (cfg.players || []).map((p) => (p.team ? `${p.name}, ${p.team}` : p.name)).join("\n");
     pc.appendChild(parea);
     const pbtn = el("button", { class: "btn", style: "margin-top:.5rem" }, ["Oppdater spillerliste fra tekst over"]);
-    pbtn.addEventListener("click", () => {
+    pbtn.addEventListener("click", async () => {
       cfg.players = parea.value.split("\n").map((l) => l.trim()).filter(Boolean).map((l) => {
         const i = l.indexOf(",");
         return i < 0 ? { name: l, team: "" } : { name: l.slice(0, i).trim(), team: l.slice(i + 1).trim() };
       });
-      App.toast(`Spillerliste oppdatert: ${cfg.players.length} spillere (husk lagre).`, "success");
+      await autosaveConfig();
+      App.toast(`Spillerliste oppdatert og lagret: ${cfg.players.length} spillere.`, "success");
     });
     pc.appendChild(pbtn);
 
@@ -752,7 +793,7 @@
       pc.appendChild(apiBox);
     }
 
-    pane.appendChild(pc);
+    panes.generelt.appendChild(pc);
 
     // --- team alias map ---
     const aliasCard = el("div", { class: "card" }, []);
@@ -805,7 +846,7 @@
     aliasBtnRow.appendChild(aliasUpdateBtn);
     aliasBtnRow.appendChild(aliasResetBtn);
     aliasCard.appendChild(aliasBtnRow);
-    pane.appendChild(aliasCard);
+    panes.generelt.appendChild(aliasCard);
 
     // --- CSV schedule ---
     const csv = el("div", { class: "card" }, []);
@@ -819,7 +860,60 @@
     file.addEventListener("change", (e) => handleCsvUpload(e.target.files[0]));
     fileWrap.appendChild(file);
     csv.appendChild(fileWrap);
-    pane.appendChild(csv);
+    panes.generelt.appendChild(csv);
+
+    // --- FIFA ranking (final group tie-breaker) ---
+    const rankCard = el("div", { class: "card" }, []);
+    rankCard.appendChild(el("h2", {}, ["FIFA-ranking (siste skille i gruppespill)"]));
+    rankCard.appendChild(el("p", { class: "sub" }, [
+      "Brukes som siste kriterium når to lag står helt likt (poeng, innbyrdes, målforskjell og mål). " +
+      "Lim inn én linje per lag: «Lagnavn» + mellomrom/tab + «poeng» (FIFA-rankingpoeng). " +
+      "Laget med flest poeng får rank 1. Lagnavn må matche navnene i konfigurasjonen (norsk)."
+    ]));
+    // Count how many teams currently have a rank
+    const ranked = (cfg.teams || []).filter((t) => t.fifaRank != null).length;
+    const rankStatus = el("p", { class: "muted", style: "margin:.2rem 0 .6rem" }, [
+      ranked ? `${ranked} av ${(cfg.teams || []).length} lag har FIFA-ranking.` : "Ingen lag har FIFA-ranking ennå."
+    ]);
+    rankCard.appendChild(rankStatus);
+    const rankArea = el("textarea", { rows: "12", style: "width:100%;font-family:monospace;font-size:.85rem", placeholder: "Frankrike\t1,877\nSpania\t1,876\nArgentina\t1,875\n…" }, []);
+    // Pre-fill from current ranks (sorted best→worst) so it's editable
+    const haveRanks = (cfg.teams || []).filter((t) => t.fifaRank != null).sort((a, b) => a.fifaRank - b.fifaRank);
+    if (haveRanks.length) rankArea.value = haveRanks.map((t) => `${t.name}\t${t.fifaPoints != null ? t.fifaPoints : (5000 - t.fifaRank)}`).join("\n");
+    rankCard.appendChild(rankArea);
+    const rankBtn = el("button", { class: "btn", style: "margin-top:.5rem" }, ["Oppdater FIFA-ranking fra tekst over"]);
+    rankBtn.addEventListener("click", async () => {
+      const lines = rankArea.value.split("\n").map((l) => l.trim()).filter(Boolean);
+      // Parse "Name <ws> points" — name may contain spaces, points is the trailing number
+      const parsed = [];
+      lines.forEach((line) => {
+        const m = line.match(/^(.*?)[\s\t]+([\d.,\s]+)$/);
+        if (!m) return;
+        const name = m[1].trim();
+        const pts = parseFloat(m[2].replace(/[\s,]/g, "").replace(/\.(?=\d{3}\b)/g, ""));
+        if (name && !isNaN(pts)) parsed.push({ name, pts });
+      });
+      if (!parsed.length) { App.toast("Fant ingen gyldige linjer. Format: «Lagnavn  poeng».", "error"); return; }
+      // Sort by points desc → rank 1 = highest
+      parsed.sort((a, b) => b.pts - a.pts);
+      // Clear existing ranks, then assign by matched name (alias-aware)
+      (cfg.teams || []).forEach((t) => { delete t.fifaRank; delete t.fifaPoints; });
+      const byName = {};
+      (cfg.teams || []).forEach((t) => { byName[t.name.toLowerCase()] = t; });
+      let matched = 0; const unmatched = [];
+      parsed.forEach((row, i) => {
+        const resolved = window.resolveTeamName ? window.resolveTeamName(row.name, cfg.teams) : row.name;
+        const t = byName[resolved.toLowerCase()] || byName[row.name.toLowerCase()];
+        if (t) { t.fifaRank = i + 1; t.fifaPoints = row.pts; matched++; }
+        else unmatched.push(row.name);
+      });
+      rankStatus.textContent = `${matched} av ${(cfg.teams || []).length} lag fikk FIFA-ranking.`;
+      await autosaveConfig();
+      const warn = unmatched.length ? ` Uten treff: ${unmatched.join(", ")}.` : "";
+      App.toast(`FIFA-ranking oppdatert og lagret: ${matched} lag.${warn}`, unmatched.length ? "info" : "success");
+    });
+    rankCard.appendChild(rankBtn);
+    panes.ranking.appendChild(rankCard);
 
     // --- save / reset ---
     const act = el("div", { class: "card" }, []);
@@ -849,15 +943,16 @@
     });
     row.appendChild(reset);
     act.appendChild(row);
-    pane.appendChild(act);
+    panes.generelt.appendChild(act);
   }
 
-  /* ---- small field helpers ---- */
+  /* ---- small field helpers (autosave on blur/commit) ---- */
   function field(parent, label, value, onInput) {
     const w = el("div", { style: "margin-bottom:.7rem" }, []);
     w.appendChild(el("label", { style: "display:block;font-weight:700;margin-bottom:.2rem" }, [label]));
     const inp = el("input", { type: "text", value: value || "", style: "width:100%" }, []);
     inp.addEventListener("input", () => onInput(inp.value));
+    inp.addEventListener("change", autosaveConfig);
     w.appendChild(inp); parent.appendChild(w); return inp;
   }
   function numField(parent, label, value, onInput) {
@@ -865,6 +960,7 @@
     w.appendChild(el("label", { style: "flex:1;font-weight:600" }, [label]));
     const inp = el("input", { type: "number", min: "0", class: "pts-in", value: value }, []);
     inp.addEventListener("input", () => onInput(+inp.value || 0));
+    inp.addEventListener("change", autosaveConfig);
     w.appendChild(inp); parent.appendChild(w); return inp;
   }
 
@@ -908,6 +1004,7 @@
     const reader = new FileReader();
     reader.onload = () => {
       try {
+        window.__csvGroupOrder = {}; // reset per import (only excely format fills it)
         const rows = parseCsv(reader.result);
         const header = rows[0].map((h) => h.trim().toLowerCase());
         const idx = (n) => header.indexOf(n);
@@ -957,6 +1054,11 @@
           }
           if (standingsCol < 0) standingsCol = 8; // fallback
 
+          // Capture the team order AS LISTED in each group's standings table. This
+          // is the official seeding order and is used as the final tie-breaker so
+          // teams level on every criterion match the source sheet's ordering.
+          const groupOrder = {}; // group letter → [team names in standings order]
+
           let lastGroup = "";
           for (const row of rows) {
             const cell = (row[standingsCol] || "").trim();
@@ -979,9 +1081,11 @@
                 teamGroup[clean.toLowerCase()] = lastGroup;
                 // Also index by the resolved (Norwegian) name so lookups work either way
                 if (resolved !== clean) teamGroup[resolved.toLowerCase()] = lastGroup;
+                (groupOrder[lastGroup] = groupOrder[lastGroup] || []).push(resolved);
               }
             }
           }
+          window.__csvGroupOrder = groupOrder;
 
           // Second pass: parse match rows — col[0] is a plain integer (match number)
           const formatDate = (raw) => {
@@ -1040,13 +1144,32 @@
           groups[m.group] = groups[m.group] || [];
           [m.home, m.away].forEach((t) => { if (!groups[m.group].includes(t)) groups[m.group].push(t); });
         });
+        // Re-order each group's teams to match the standings-table order from the
+        // CSV (the official seeding), so teams level on all criteria fall back to
+        // the same order as the source sheet.
+        const csvOrder = window.__csvGroupOrder || {};
+        Object.keys(groups).forEach((g) => {
+          const order = csvOrder[g];
+          if (!order || !order.length) return;
+          groups[g].sort((a, b) => {
+            const ia = order.indexOf(a), ib = order.indexOf(b);
+            if (ia === -1 && ib === -1) return 0;
+            if (ia === -1) return 1;
+            if (ib === -1) return -1;
+            return ia - ib;
+          });
+        });
         const ungrouped = matches.filter((m) => !m.group).length;
         cfg.matches = matches;
         cfg.groups = groups;
-        // add any unknown teams (no flag code yet) so they still show up
+        // add any unknown teams, resolving a flag code from the master map
         const known = new Set(cfg.teams.map((t) => t.name));
         matches.forEach((m) => [m.home, m.away].forEach((t) => {
-          if (!known.has(t)) { cfg.teams.push({ name: t, code: "" }); known.add(t); }
+          if (!known.has(t)) {
+            const code = window.flagCodeForName ? window.flagCodeForName(t) : "";
+            cfg.teams.push({ name: t, code });
+            known.add(t);
+          }
         }));
         const ungroupedMsg = ungrouped ? ` (${ungrouped} uten gruppe — sjekk lagnavn)` : "";
         App.toast(`Lastet ${matches.length} gruppespill-kamper${ungroupedMsg}. Sluttspill-bracket er uendret — velg forhåndsoppsett under. Husk å lagre.`, "success");

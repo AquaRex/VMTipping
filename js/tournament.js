@@ -3,7 +3,7 @@
  *  form (schema-form.js) and the CSV importer (csv-import.js).
  *
  *  Exposes  window.WC  with:
- *    computeStandings(cfg, results) -> { standings, complete }
+ *    computeStandings(cfg, results) -> { standings, complete, unresolved }
  *        results = { matchId: {h,a} }.  Applies the FIFA World Cup 26 tie-break
  *        rules (Regulations art. 13): head-to-head first, then overall.
  *    buildSeeds(cfg, standings, complete) -> { "1A":team, "2A":team, ...,
@@ -24,8 +24,13 @@
 (function (global) {
   "use strict";
 
-  /* ---- comparator: points, goal difference, goals for, then draw order ---- */
-  const cmp = (a, b) => (b.pts - a.pts) || (b.gd - a.gd) || (b.gf - a.gf) || (a.idx - b.idx);
+  /* ---- comparator: points, goal difference, goals for, FIFA rank, draw order
+   * (used for the cross-group third-place table; no head-to-head applies there) */
+  const rankCmp = (a, b) => {
+    if (a.fifaRank != null && b.fifaRank != null && a.fifaRank !== b.fifaRank) return a.fifaRank - b.fifaRank;
+    return a.idx - b.idx;
+  };
+  const cmp = (a, b) => (b.pts - a.pts) || (b.gd - a.gd) || (b.gf - a.gf) || rankCmp(a, b);
 
   /* ---- head-to-head mini-table among a set of tied teams ------------------ */
   function miniTable(block, groupMatches, results) {
@@ -49,7 +54,20 @@
    * If that splits some but not all, re-apply head-to-head to each still-tied
    * subset (recursion). A subset that head-to-head cannot separate at all falls
    * through to overall GD / goals / draw order.                               */
-  function breakTie(block, groupMatches, results) {
+  // Final fallback once head-to-head + overall GD/goals are exhausted (FIFA
+  // criteria 7+): higher FIFA ranking (lower rank number) wins; if rank is
+  // missing for either team, keep the source-sheet order (idx). Records which
+  // teams were separated ONLY by this fallback (or not at all) for an admin
+  // warning, via the optional `flags` sink.
+  function finalFallback(a, b, flags) {
+    const ra = a.fifaRank, rb = b.fifaRank;
+    if (ra != null && rb != null && ra !== rb) return ra - rb; // 1 = best
+    // tied on everything computable, or a rank is missing
+    if (flags) flags.unresolved.push([a.team, b.team]);
+    return a.idx - b.idx;
+  }
+
+  function breakTie(block, groupMatches, results, flags) {
     const mini = miniTable(block, groupMatches, results);
     const sorted = block.slice().sort((a, b) =>
       (mini[b.team].pts - mini[a.team].pts) ||
@@ -66,14 +84,14 @@
       while (j + 1 < sorted.length && same(sorted[i], sorted[j + 1])) j++;
       const sub = sorted.slice(i, j + 1);
       if (sub.length === 1) out.push(sub[0]);
-      else if (sub.length < block.length) breakTie(sub, groupMatches, results).forEach((t) => out.push(t));
-      else sub.sort((a, b) => (b.gd - a.gd) || (b.gf - a.gf) || (a.idx - b.idx)).forEach((t) => out.push(t));
+      else if (sub.length < block.length) breakTie(sub, groupMatches, results, flags).forEach((t) => out.push(t));
+      else sub.sort((a, b) => (b.gd - a.gd) || (b.gf - a.gf) || finalFallback(a, b, flags)).forEach((t) => out.push(t));
       i = j + 1;
     }
     return out;
   }
 
-  function rankGroup(arr, groupMatches, results) {
+  function rankGroup(arr, groupMatches, results, flags) {
     const byPts = arr.slice().sort((a, b) => b.pts - a.pts);
     const result = [];
     let i = 0;
@@ -82,7 +100,7 @@
       while (j + 1 < byPts.length && byPts[j + 1].pts === byPts[i].pts) j++;
       const block = byPts.slice(i, j + 1);
       if (block.length === 1) result.push(block[0]);
-      else breakTie(block, groupMatches, results).forEach((t) => result.push(t));
+      else breakTie(block, groupMatches, results, flags).forEach((t) => result.push(t));
       i = j + 1;
     }
     return result;
@@ -90,10 +108,14 @@
 
   function computeStandings(cfg, results) {
     const standings = {}, complete = {};
+    const unresolved = []; // [[teamA, teamB], …] pairs only split by fallback/idx
+    // map team name → FIFA rank (lower = better) from cfg.teams
+    const rankOf = {};
+    (cfg.teams || []).forEach((t) => { if (t && t.name && t.fifaRank != null) rankOf[t.name] = t.fifaRank; });
     Object.keys(cfg.groups).forEach((g) => {
       const teams = cfg.groups[g];
       const st = {};
-      teams.forEach((t, i) => (st[t] = { team: t, group: g, idx: i, pl: 0, w: 0, l: 0, d: 0, gf: 0, ga: 0, gd: 0, pts: 0 }));
+      teams.forEach((t, i) => (st[t] = { team: t, group: g, idx: i, fifaRank: rankOf[t] != null ? rankOf[t] : null, pl: 0, w: 0, l: 0, d: 0, gf: 0, ga: 0, gd: 0, pts: 0 }));
       const groupMatches = cfg.matches.filter((m) => m.group === g);
       let allDone = true;
       groupMatches.forEach((m) => {
@@ -106,10 +128,12 @@
         else { H.d++; A.d++; H.pts++; A.pts++; }
       });
       teams.forEach((t) => (st[t].gd = st[t].gf - st[t].ga));
-      standings[g] = rankGroup(teams.map((t) => st[t]), groupMatches, results);
+      const flags = { unresolved: [] };
+      standings[g] = rankGroup(teams.map((t) => st[t]), groupMatches, results, flags);
+      flags.unresolved.forEach((pair) => unresolved.push({ group: g, teams: pair }));
       complete[g] = allDone;
     });
-    return { standings, complete };
+    return { standings, complete, unresolved };
   }
 
   /* =========================================================================
