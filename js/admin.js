@@ -884,14 +884,14 @@
     return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
   }
   function parseCsv(text) {
-    // simple RFC-ish parser handling quotes
+    // RFC 4180 parser: newlines inside quoted fields are part of the cell value
     const rows = []; let row = [], cur = "", q = false;
     text = text.replace(/^﻿/, "");
     for (let i = 0; i < text.length; i++) {
       const c = text[i];
       if (q) {
         if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; }
-        else cur += c;
+        else if (c !== "\r") cur += c; // keep \n inside quotes as part of value (skip \r)
       } else {
         if (c === '"') q = true;
         else if (c === ",") { row.push(cur); cur = ""; }
@@ -961,12 +961,12 @@
           for (const row of rows) {
             const cell = (row[standingsCol] || "").trim();
             const grpMatch = grpRe.exec(cell);
-            // A standings-table HEADER row has "PL" in the next column. A real group
-            // header ("Group A") matches grpRe; any OTHER header (e.g. "3rd places")
-            // is a non-group section, so we must STOP assigning teams to a group —
-            // otherwise the overflow "3rd places" teams (? Australia, ? Norway, …)
-            // get dumped into the last group (L) and pollute every team's group.
-            const isHeaderRow = /^pl$/i.test((row[standingsCol + 1] || "").trim());
+            // A standings-table HEADER row has a stats column ("S" or "PL") right
+            // after the label. A real group header ("Group A") matches grpRe; any
+            // OTHER header (e.g. "3rd places") is a non-group section — stop assigning
+            // teams to a group, otherwise those teams pollute the last real group (L).
+            const nextCell = (row[standingsCol + 1] || "").trim();
+            const isHeaderRow = /^(s|pl|mp|played)$/i.test(nextCell);
             if (grpMatch) {
               lastGroup = grpMatch[1].toUpperCase();
             } else if (isHeaderRow) {
@@ -995,7 +995,10 @@
             return `${parseInt(mo[2], 10)}. ${m}`;
           };
 
-          // Parse group-stage match rows from col[0]
+          // Parse group-stage match rows from col[0]. EVERY row whose col[0] is a
+          // match number with a home (col[4]) + away (col[7]) team IS a match — we
+          // never drop it just because we couldn't tag its group from the standings.
+          const rawMatches = [];
           for (const row of rows) {
             const id = parseInt(row[0], 10);
             if (!id || String(id) !== (row[0] || "").trim()) continue;
@@ -1006,176 +1009,38 @@
             const away = window.resolveTeamName ? window.resolveTeamName(awayRaw, cfg.teams) : awayRaw;
             const group = (teamGroup[homeRaw.toLowerCase()] || teamGroup[awayRaw.toLowerCase()] ||
                            teamGroup[home.toLowerCase()] || teamGroup[away.toLowerCase()] || "").toUpperCase();
-            if (group) matches.push({ id, day: (row[1]||"").trim(), date: formatDate(row[2]||""), time: (row[3]||"").trim(), group, home, away });
+            rawMatches.push({ id, day: (row[1]||"").trim(), date: formatDate(row[2]||""), time: (row[3]||"").trim(), group, home, away });
           }
 
+          // Fill in any missing groups: a team plays all its group-stage matches in
+          // ONE group, so infer each match's group from any other match where one of
+          // its teams already has a known group.
+          const teamToGroup = {};
+          rawMatches.forEach((m) => {
+            if (m.group) { teamToGroup[m.home] = m.group; teamToGroup[m.away] = m.group; }
+          });
+          rawMatches.forEach((m) => {
+            if (!m.group) m.group = teamToGroup[m.home] || teamToGroup[m.away] || "";
+          });
+
+          matches = rawMatches;
           if (!matches.length) {
             App.toast("Fant ingen kamper i filen. Sjekk format.", "error"); return;
           }
-
-          // === Detect & rebuild the knockout bracket from the schedule sheet ===
-          // excely lays the bracket out to the right of the standings. Each round
-          // has a header ("Round of 32", "Quarterfinals", …) above a column of
-          // match blocks. A first-round block looks like:
-          //     [matchId][topSeed]            e.g.  "74"  "1E"
-          //              [botSeed]            e.g.  "3rd Group A/B/C/D/F" (below the id)
-          // We read the first round top-to-bottom (its true bracket order), capture
-          // each match's two seed labels, and let buildBracket() build the tree.
-          const dtRe = /^(\w+\s+\d+,\s*\d{4})\s+(\d{1,2}:\d{2})$/;
-          const roundHeaderRe = /^(round\s+of\s+\d+|quarterfinal|semi.?final|final)\b/i;
-
-          // seed-label → canonical seed string the seeding engine understands.
-          // Handles both short codes ("1E", "2C", "3A") and excely's full-text
-          // labels ("Winner Group B", "Runner-up Group C", "3rd Group A/D/E/F").
-          const normSeed = (v) => {
-            v = (v || "").trim(); let m;
-            if ((m = /^([12])\s*([A-Za-z])$/.exec(v))) return m[1] + m[2].toUpperCase();          // 1E, 2C
-            if ((m = /^3\s*([A-Za-z])$/.exec(v))) return "3" + m[1].toUpperCase();                 // 3C (specific)
-            if ((m = /^winner\s+group\s+([A-Za-z])$/i.exec(v))) return "1" + m[1].toUpperCase();   // Winner Group B
-            if ((m = /^(runner.?up|runners.?up)\s+group\s+([A-Za-z])$/i.exec(v))) return "2" + m[2].toUpperCase(); // Runner-up Group C
-            if (/^(3rd\s+group|3\.?\s*plass)/i.test(v)) {                                          // allowed-set
-              const g = v.replace(/^(3rd\s+group|3\.?\s*plass)\s*/i, "").trim();
-              if (g) return "3. plass " + g;
-            }
-            return null;
-          };
-
-          // 1. Find round-header columns and date cells (bracket area only)
-          const dateCells = [];
-          const headerCols = {}; // col → matchCount
-          for (let r = 0; r < rows.length; r++) {
-            for (let c = 8; c < rows[r].length; c++) {
-              const v = (rows[r][c] || "").trim();
-              if (!v) continue;
-              const dm = dtRe.exec(v);
-              if (dm) { dateCells.push({ r, c, date: formatDate(dm[1]), time: dm[2] }); continue; }
-              if (roundHeaderRe.test(v) && headerCols[c] === undefined) {
-                let mc = 1;
-                if (/round\s+of\s+(\d+)/i.test(v)) mc = parseInt(v.match(/\d+/)[0], 10) / 2;
-                else if (/quarterfinal/i.test(v)) mc = 4;
-                else if (/semi/i.test(v)) mc = 2;
-                headerCols[c] = mc;
-              }
-            }
-          }
-          const roundColsOrdered = Object.keys(headerCols).map(Number).sort((a, b) => a - b);
-          const firstRoundCount = roundColsOrdered.length ? headerCols[roundColsOrdered[0]] : 0;
-          const isPow2 = (n) => n > 0 && (n & (n - 1)) === 0;
-          const maxGroupId = matches.length ? Math.max(...matches.map(m => m.id)) : 0;
-
-          if (isPow2(firstRoundCount) && roundColsOrdered.length) {
-            const bracketColMin = roundColsOrdered[0] - 8; // skip standings to the left
-
-            // 2. Collect anchors (bare ints) and seed labels in the bracket area
-            const anchors = [];   // { value, r, c }
-            const seedCells = []; // { seed, r, c }
-            for (let r = 0; r < rows.length; r++) {
-              for (let c = Math.max(8, bracketColMin); c < rows[r].length; c++) {
-                const v = (rows[r][c] || "").trim();
-                if (!v) continue;
-                const n = parseInt(v, 10);
-                if (n > 0 && String(n) === v) { anchors.push({ value: n, r, c }); continue; }
-                const s = normSeed(v);
-                if (s) seedCells.push({ seed: s, r, c });
-              }
-            }
-
-            // 3. First-round anchors = leftmost anchor column holding ≥ firstRoundCount,
-            //    read top-to-bottom (= true bracket order)
-            const byCol = {};
-            anchors.forEach(a => { (byCol[a.c] = byCol[a.c] || []).push(a); });
-            let frCol = -1;
-            Object.keys(byCol).map(Number).sort((a, b) => a - b).forEach(c => {
-              if (frCol < 0 && byCol[c].length >= firstRoundCount) frCol = c;
-            });
-
-            if (frCol >= 0) {
-              const frAnchors = byCol[frCol].slice().sort((a, b) => a.r - b.r).slice(0, firstRoundCount);
-
-              // 4. Read each match's seed labels (top = right on same row; bot = below)
-              const topSeedAt = (rr, cc) => {
-                let best = null, bestD = Infinity;
-                for (const s of seedCells) {
-                  if (s.r !== rr || s.c <= cc) continue;
-                  const d = s.c - cc;
-                  if (d < bestD) { bestD = d; best = s; }
-                }
-                return best ? best.seed : "";
-              };
-              const botSeedAt = (rr, cc) => {
-                let best = null, bestD = Infinity;
-                for (const s of seedCells) {
-                  if (s.r <= rr || s.r > rr + 3) continue;
-                  const d = Math.abs(s.c - cc) + (s.r - rr) * 0.5;
-                  if (d < bestD) { bestD = d; best = s; }
-                }
-                return best ? best.seed : "";
-              };
-
-              // 5. IDs: use anchor values when they are real bracket ids (> group ids
-              //    and unique); otherwise generate sequential ids after the group stage
-              const valuesUsable = frAnchors.every(a => a.value > maxGroupId) &&
-                                   new Set(frAnchors.map(a => a.value)).size === frAnchors.length;
-              let gen = maxGroupId + 1;
-              const firstRoundIds = frAnchors.map(a => valuesUsable ? a.value : gen++);
-
-              // 6. Seeds keyed by chosen ids
-              const seeds = {};
-              frAnchors.forEach((a, i) => {
-                seeds[firstRoundIds[i]] = { top: topSeedAt(a.r, a.c), bot: botSeedAt(a.r, a.c) };
-              });
-
-              // 7. Build the tree
-              const built = buildBracket(firstRoundIds, { seeds });
-
-              // 7b. Normalise third-place slots into ALLOWED-SET constraints so the
-              //     generic seeding solver can place teams for ANY tournament:
-              //       • "3rd Group A/D/E/F" / "3. plass …"  → kept as-is (official set)
-              //       • specific "3C" or unknown            → derive "all groups except
-              //         the sibling winner's group" (the only same-group rule we can be
-              //         sure of). The solver then assigns the actual qualifying thirds.
-              const groupLetters = [...new Set(matches.map(m => m.group))].sort();
-              built.knockoutBracket.rounds[0].matchIds.forEach((mid) => {
-                const m = built.knockoutBracket.matches[mid];
-                ["top", "bot"].forEach((side) => {
-                  const s = m[side];
-                  if (!s || typeof s.seed !== "string" || !/^3/i.test(s.seed)) return;
-                  if (/^3\.?\s*plass\s+.+/i.test(s.seed)) return;  // already an allowed-set
-                  const sib = side === "top" ? m.bot : m.top;
-                  const wm = sib && typeof sib.seed === "string" && /^[12]\s*([A-Z0-9]+)$/i.exec(sib.seed.trim());
-                  const exclude = wm ? wm[1].toUpperCase() : null;
-                  const allowed = groupLetters.filter(g => g !== exclude);
-                  s.seed = "3. plass " + allowed.join("/");
-                });
-              });
-
-              // 8. Assign dates per round by matching built rounds to header columns
-              built.knockoutBracket.rounds.forEach((round, k) => {
-                const col = roundColsOrdered[k];
-                if (col === undefined) return;
-                const colDates = dateCells.filter(d => Math.abs(d.c - col) <= 4).sort((x, y) => x.r - y.r);
-                round.matchIds.forEach((mid, j) => {
-                  const d = colDates[j];
-                  if (d) { built.knockoutBracket.matches[mid].date = d.date; built.knockoutBracket.matches[mid].time = d.time; }
-                });
-              });
-
-              cfg.knockoutBracket = built.knockoutBracket;
-              cfg.knockoutRounds = built.knockoutRounds;
-            }
-          }
         }
 
-        // Only keep group-stage matches (those with a group letter assigned)
-        // Bracket matches (no group) are handled via knockoutBracket above
-        matches = matches.filter(m => m.group);
+        // Keep all parsed group-stage matches. (Bracket matches are handled via the
+        // preset, not the CSV.) Group may be blank if it truly couldn't be inferred.
+        matches = matches.filter(m => m.home && m.away);
 
-        // rebuild groups from the gruppe column
+        // rebuild groups from the gruppe column (skip matches with no group)
         const groups = {};
         matches.forEach((m) => {
+          if (!m.group) return;
           groups[m.group] = groups[m.group] || [];
           [m.home, m.away].forEach((t) => { if (!groups[m.group].includes(t)) groups[m.group].push(t); });
         });
+        const ungrouped = matches.filter((m) => !m.group).length;
         cfg.matches = matches;
         cfg.groups = groups;
         // add any unknown teams (no flag code yet) so they still show up
@@ -1183,10 +1048,8 @@
         matches.forEach((m) => [m.home, m.away].forEach((t) => {
           if (!known.has(t)) { cfg.teams.push({ name: t, code: "" }); known.add(t); }
         }));
-        const bracketInfo = cfg.knockoutBracket && cfg.knockoutBracket.rounds
-          ? ` · sluttspill: ${cfg.knockoutBracket.rounds[0].matchIds.length} kamper i første runde`
-          : "";
-        App.toast(`Lastet ${matches.length} kamper${bracketInfo}. Husk å lagre.`, "success");
+        const ungroupedMsg = ungrouped ? ` (${ungrouped} uten gruppe — sjekk lagnavn)` : "";
+        App.toast(`Lastet ${matches.length} gruppespill-kamper${ungroupedMsg}. Sluttspill-bracket er uendret — velg forhåndsoppsett under. Husk å lagre.`, "success");
         renderSetup();
       } catch (err) {
         App.toast("Klarte ikke å lese CSV: " + err.message, "error");
