@@ -211,7 +211,9 @@
         tr.appendChild(whenTd);
 
         const td = el("td", {}, []);
-        const open = el("button", { class: "btn btn-sm" }, ["Rett"]);
+        const view = el("button", { class: "btn btn-sm" }, ["Vis skjema"]);
+        view.addEventListener("click", () => viewEntry(en.id));
+        const open = el("button", { class: "btn btn-sm", style: "margin-left:.4rem" }, ["Rett"]);
         open.addEventListener("click", () => openEntry(en.id));
         const del = el("button", { class: "btn btn-sm btn-danger", style: "margin-left:.4rem" }, ["Slett"]);
         del.addEventListener("click", async () => {
@@ -219,7 +221,7 @@
             await DB.deleteEntry(en.id); App.toast("Slettet.", "success"); reloadEntries();
           }
         });
-        td.appendChild(open); td.appendChild(del); tr.appendChild(td);
+        td.appendChild(view); td.appendChild(open); td.appendChild(del); tr.appendChild(td);
         tb.appendChild(tr);
       });
       tbl.appendChild(tb);
@@ -1194,20 +1196,90 @@
   }
 
   /* ---- modal ---- */
-  function showModal(title, bodyNode, footButtons) {
+  function showModal(title, bodyNode, footButtons, opts) {
     const host = document.getElementById("modal-host");
     host.innerHTML = "";
-    const backdrop = el("div", { class: "modal-backdrop" }, []);
-    backdrop.addEventListener("click", (e) => { if (e.target === backdrop) closeModal(); });
-    const modal = el("div", { class: "modal" }, []);
+    const backdropClass = "modal-backdrop" + (opts && opts.full ? " modal-backdrop-full" : "");
+    const backdrop = el("div", { class: backdropClass }, []);
+    if (!(opts && opts.full)) backdrop.addEventListener("click", (e) => { if (e.target === backdrop) closeModal(); });
+    const modalClass = "modal" + (opts && opts.wide ? " modal-wide" : "");
+    const modal = el("div", { class: modalClass }, []);
     const head = el("div", { class: "modal-head" }, [el("h3", {}, [title])]);
     const x = el("button", { class: "btn btn-sm btn-ghost" }, ["✕"]);
     x.addEventListener("click", closeModal);
     head.appendChild(x);
-    const bodyWrap = el("div", { class: "modal-body" }, [bodyNode]);
+    const bodyClass = "modal-body" + (opts && opts.scroll ? " modal-body-scroll" : "");
+    const bodyWrap = el("div", { class: bodyClass }, [bodyNode]);
     const foot = el("div", { class: "modal-foot" }, footButtons || []);
     modal.appendChild(head); modal.appendChild(bodyWrap); modal.appendChild(foot);
     backdrop.appendChild(modal); host.appendChild(backdrop);
   }
   function closeModal() { document.getElementById("modal-host").innerHTML = ""; }
+
+  function viewEntry(id) {
+    const en = entries.find((e) => e.id === id);
+    if (!en) return;
+    const p = en.predictions || {};
+    const pMatches  = p.matches  || {};
+    const pWinners  = (p.bracket && p.bracket.winners) || {};
+    const pBonus    = p.bonus    || {};
+
+    const store = {
+      getMatch:  (mid) => pMatches[mid] || {},
+      setMatch:  () => {},
+      getWinner: (mid) => pWinners[mid] || "",
+      setWinner: () => {},
+      setRounds: () => {}
+    };
+
+    const body = el("div", {}, []);
+
+    // tabs
+    const tabBar = el("div", { class: "nav-links", style: "margin-bottom:1.2rem" }, []);
+    const tabSkjema = el("a", { href: "#", class: "active" }, ["Tippeskjema"]);
+    const tabBonus  = el("a", { href: "#" }, ["Bonusspørsmål"]);
+    tabBar.appendChild(tabSkjema);
+    if (cfg.bonus && cfg.bonus.questions && cfg.bonus.questions.length) tabBar.appendChild(tabBonus);
+    body.appendChild(tabBar);
+
+    // tippeskjema panel
+    const panSkjema = el("div", {}, []);
+    const layout = el("div", { class: "layout" }, []);
+    const colLeft  = el("div", { class: "col-left" }, []);
+    const colMid   = el("div", { class: "col-mid" }, []);
+    const colRight = el("div", { class: "col-right" }, []);
+    layout.appendChild(colLeft); layout.appendChild(colMid); layout.appendChild(colRight);
+    panSkjema.appendChild(layout);
+    body.appendChild(panSkjema);
+
+    SchemaForm.mount({ cfg, store, left: colLeft, mid: colMid, right: colRight, readonly: true });
+
+    // bonus panel
+    const panBonus = el("div", { class: "hidden" }, []);
+    if (cfg.bonus && cfg.bonus.questions && cfg.bonus.questions.length) {
+      const bonusWrap = el("div", { class: "wrap", style: "padding-top:0;padding-bottom:0" }, []);
+      BonusForm.render(bonusWrap, {
+        cfg,
+        get:  (qid) => pBonus[qid] || "",
+        set:  () => {},
+        readonly: true,
+        showPoints: true
+      });
+      panBonus.appendChild(bonusWrap);
+      body.appendChild(panBonus);
+    }
+
+    function switchTab(t) {
+      tabSkjema.classList.toggle("active", t === "skjema");
+      tabBonus.classList.toggle("active",  t === "bonus");
+      panSkjema.classList.toggle("hidden", t !== "skjema");
+      panBonus.classList.toggle("hidden",  t !== "bonus");
+    }
+    tabSkjema.addEventListener("click", (e) => { e.preventDefault(); switchTab("skjema"); });
+    tabBonus.addEventListener("click",  (e) => { e.preventDefault(); switchTab("bonus"); });
+
+    const closeBtn = el("button", { class: "btn" }, ["Lukk"]);
+    closeBtn.addEventListener("click", closeModal);
+    showModal(en.name, body, [closeBtn], { full: true });
+  }
 })();

@@ -291,7 +291,7 @@ window.DEFAULT_CONFIG = {
       { id: "si2",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "country", points: 5, text: "Første land som får rødt kort?" },
       { id: "si3",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "country", points: 5, text: "Hvilket land scorer det første målet?" },
       { id: "si4",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "country", points: 5, text: "Hvilket land scorer det siste målet?" },
-      { id: "si5",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "text",    points: 5, text: "Første VAR-avgjørelse?* (kamp)" },
+      { id: "si5",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "match",   points: 5, text: "Første VAR-avgjørelse?* (kamp)" },
       { id: "si6",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "yesno",   points: 5, text: "Blir VAR brukt i finalen?*" },
       { id: "si7",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "yesno",   points: 5, text: "8 eller flere mål i samme kamp?" },
       { id: "si8",  section: "Simen Berntsens Saftige Bonusspørsmål", type: "country", points: 5, text: "Hvilket land får første straffe?" },
@@ -307,7 +307,7 @@ window.DEFAULT_CONFIG = {
       { id: "no5",  section: "Norge", type: "yesno", points: 5, text: "Scorer Norge i begge omgangene i åpningskampen?" },
       { id: "no6",  section: "Norge", type: "player", points: 5, text: "Norges første målscorer?" },
       { id: "no7",  section: "Norge", type: "player", points: 5, text: "Norges siste målscorer?" },
-      { id: "no8",  section: "Norge", type: "text",  points: 5, text: "Hvor langt kommer Norge i VM?" },
+      { id: "no8",  section: "Norge", type: "customselect", options: ["Gruppespill", "16-dels Finale", "8-dels Finale", "Kvartfinale", "Semifinale", "Finale"], points: 5, text: "Hvor langt kommer Norge i VM?" },
       { id: "no9",  section: "Norge", type: "yesno", points: 5, text: "Får en spiller på Norge rødt kort under mesterskapet?" },
       { id: "no10", section: "Norge", type: "yesno", points: 5, text: "Blir det selvmål i en av Norges kamper under mesterskapet?" }
     ],

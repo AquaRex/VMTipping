@@ -65,11 +65,29 @@
     document.getElementById("pub-confirm").addEventListener("click", () => { modal.remove(); doPublish(); });
   };
 
+  function injectUnlockButton() {
+    if (!Draft.locked) return;
+    const nav = document.getElementById("nav");
+    if (!nav) return;
+    const btn = document.createElement("button");
+    btn.className = "btn btn-sm btn-danger";
+    btn.style.cssText = "margin-left:.6rem;align-self:center";
+    btn.textContent = "🔓 Lås opp";
+    btn.addEventListener("click", () => {
+      if (!confirm("Låse opp skjemaet? Du kan fylle inn på nytt og publisere igjen (vil lagres som en ny innlevering).")) return;
+      Draft.unlock();
+      location.reload();
+    });
+    const links = nav.querySelector(".nav-links");
+    if (links) links.appendChild(btn);
+  }
+
   // Wire up a "Nullstill" button — disabled when locked.
   // On page load, verify the published entry still exists in the DB.
   // If admin removed it, silently unlock so the user can re-submit.
   window.verifyLock = async function () {
     if (!Draft.locked) return;
+    injectUnlockButton();
     const id = Draft.data.publishedId;
     if (!id) { Draft.unlock(); return; }
     try {

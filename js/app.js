@@ -85,18 +85,15 @@
   App.renderNav = function (active) {
     const nav = document.getElementById("nav");
     if (!nav) return;
-    const links = [
-      { href: "index.html", label: "Tippeskjema", key: "skjema" },
-      { href: "bonus.html", label: "Bonusspørsmål", key: "bonus" },
-      { href: "admin.html", label: "Admin", key: "admin" }
-    ];
+    // player pages: only show "Admin" link (navigation between skjema/bonus is via footer)
+    // admin page: show "← Tilbake" link instead
+    const isAdmin = active === "admin";
+    const rightLink = isAdmin
+      ? `<a href="index.html">← Tilbake</a>`
+      : `<a href="admin.html">Admin</a>`;
     nav.innerHTML =
       `<a class="brand" href="index.html">⚽ VM-tipping ${App.escape(App._config.season || "")}</a>` +
-      `<div class="nav-links">` +
-      links.map((l) =>
-        `<a href="${l.href}" class="${active === l.key ? "active" : ""}">${l.label}</a>`
-      ).join("") +
-      `</div>`;
+      `<div class="nav-links">${rightLink}</div>`;
   };
 
   window.App = App;
