@@ -10,6 +10,7 @@
     const { cfg, get, set, onChange } = opts;
     const showPoints = opts.showPoints !== false;
     const readonly = !!opts.readonly;
+    const grade = typeof opts.grade === "function" ? opts.grade : null;
     const el = App.el;
     const bonus = cfg.bonus || { questions: [] };
     container.innerHTML = "";
@@ -39,6 +40,10 @@
       const wrap = el("div", { class: "q" }, []);
       const label = el("div", { class: "qtext" }, [q.text]);
       if (showPoints && q.points != null) label.appendChild(el("span", { class: "qpts" }, [`${q.points}p`]));
+      if (grade) {
+        const gb = grade(q.id);
+        if (gb) label.appendChild(el("span", { class: "grade-badges" }, [gb]));
+      }
       wrap.appendChild(label);
       const current = get(q.id);
 

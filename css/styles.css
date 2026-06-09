@@ -277,6 +277,32 @@ select.btn-select {
   pointer-events: none; overflow: visible;
 }
 .bmeta { font-size: .68rem; color: var(--muted); margin-bottom: .15rem; padding-left: .25rem; }
+
+/* ---- correct/wrong overlay badges (admin "Vis skjema") ----
+   One consistent look everywhere: a right-aligned cluster of solid pills. */
+.grade-badges {
+  margin-left: auto; display: inline-flex; align-items: center;
+  gap: .3rem; flex: none; padding-left: .5rem;
+}
+.grade-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: .72rem; line-height: 1; letter-spacing: .01em;
+  padding: .2rem .45rem; min-width: 1.5rem; border-radius: 6px;
+  white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,.25);
+}
+.grade-badge.ok { background: #14b86c; color: #06301d; border: 1px solid #0d9456; }
+.grade-badge.no { background: #e05555; color: #3a0c0c; border: 1px solid #c23c3c; }
+
+/* make the lines that host badges into flex rows so the cluster sits on the right.
+   Scoped to the full-screen entry view so other pages are unaffected. */
+.modal-backdrop-full .ml-when,
+.modal-backdrop-full .bmeta {
+  display: flex; align-items: center; flex-wrap: nowrap;
+  white-space: normal; overflow: visible;
+}
+.modal-backdrop-full .q .qtext {
+  display: flex; align-items: center; flex-wrap: wrap; gap: .25rem;
+}
 .bbox { border: 1px solid var(--line); border-radius: 8px; background: var(--bg-2); overflow: hidden; }
 .bbox.final { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(245,197,24,.25); }
 .bslot {

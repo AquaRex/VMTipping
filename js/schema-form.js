@@ -14,6 +14,7 @@
   function mount(opts) {
     const { cfg, store, left, mid, right, onChange } = opts;
     const readonly = !!opts.readonly;
+    const grade = typeof opts.grade === "function" ? opts.grade : null;
     const el = App.el;
     const MAX_GOALS = 30;
     const clamp = (n) => Math.max(0, Math.min(MAX_GOALS, n));
@@ -33,7 +34,18 @@
     function renderMatchRow(m) {
       const saved = store.getMatch(m.id) || {};
       const row = el("div", { class: "ml-row" }, []);
-      row.appendChild(el("div", { class: "ml-when" }, [`${m.day} ${m.date} · ${m.time} · Gr. ${m.group}`]));
+      const whenDiv = el("div", { class: "ml-when" }, [`${m.day} ${m.date} · ${m.time} · Gr. ${m.group}`]);
+      if (grade) {
+        const go = grade(`m${m.id}o`);   // outcome
+        const ge = grade(`m${m.id}e`);   // exact
+        if (go || ge) {
+          const badges = el("span", { class: "grade-badges" }, []);
+          if (go) { go.title = "Riktig utfall"; badges.appendChild(go); }
+          if (ge) { ge.title = "Eksakt resultat"; badges.appendChild(ge); }
+          whenDiv.appendChild(badges);
+        }
+      }
+      row.appendChild(whenDiv);
       row.appendChild(el("span", { class: "ml-no" }, [String(m.id)]));
       const homeDiv = el("div", { class: "ml-home" }, [el("span", { class: "nm" }, [m.home]), flagNode(m.home)]);
       const awayDiv = el("div", { class: "ml-away" }, [flagNode(m.away), el("span", { class: "nm" }, [m.away])]);
@@ -302,7 +314,12 @@
     function renderBox(mid_) {
       const m = B.matches[mid_];
       const box = el("div", { class: "bmatch" }, []);
-      box.appendChild(el("div", { class: "bmeta" }, [`M${mid_}${m.title ? " · " + m.title : ""} · ${m.date} · ${m.time}`]));
+      const meta = el("div", { class: "bmeta" }, [`M${mid_}${m.title ? " · " + m.title : ""} · ${m.date} · ${m.time}`]);
+      if (grade) {
+        const gb = grade(`kw:${mid_}`);
+        if (gb) { const badges = el("span", { class: "grade-badges" }, [gb]); meta.appendChild(badges); }
+      }
+      box.appendChild(meta);
       const inner = el("div", { class: "bbox" + (m.title ? " final" : "") }, []);
       inner.appendChild(renderSlot(mid_, "top"));
       inner.appendChild(renderSlot(mid_, "bot"));

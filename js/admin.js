@@ -1205,10 +1205,30 @@
   function viewEntry(id) {
     const en = entries.find((e) => e.id === id);
     if (!en) return;
+    en.scores = en.scores || {};
     const p = en.predictions || {};
     const pMatches  = p.matches  || {};
     const pWinners  = (p.bracket && p.bracket.winners) || {};
     const pBonus    = p.bonus    || {};
+
+    // Build a grade lookup keyed by scorable key → { correct, points } using the
+    // same engine that computes totals, so the overlay matches the actual score.
+    const grades = {};
+    let gradedTotal = 0;
+    Scoring.buildScorables(cfg, answerKey, en).forEach((g) => g.items.forEach((it) => {
+      const correct = Scoring.resolved(en.scores, it.key, it.auto);
+      grades[it.key] = { correct, points: it.points, hasKey: it.auto !== null || (en.scores && Object.prototype.hasOwnProperty.call(en.scores, it.key)) };
+      if (correct) gradedTotal += it.points;
+    }));
+    // grade(key) → DOM badge or null
+    const grade = (key) => {
+      const g = grades[key];
+      if (!g || !g.hasKey) return null;
+      const span = el("span", { class: "grade-badge " + (g.correct ? "ok" : "no") }, [
+        g.correct ? `✓ +${g.points}` : "✗"
+      ]);
+      return span;
+    };
 
     const store = {
       getMatch:  (mid) => pMatches[mid] || {},
@@ -1219,6 +1239,11 @@
     };
 
     const body = el("div", {}, []);
+
+    // total points banner
+    body.appendChild(el("div", { class: "banner info", style: "margin-bottom:1rem" }, [
+      `Sum poeng (mot fasit): ${gradedTotal}`
+    ]));
 
     // tabs
     const tabBar = el("div", { class: "nav-links", style: "margin-bottom:1.2rem" }, []);
@@ -1238,7 +1263,7 @@
     panSkjema.appendChild(layout);
     body.appendChild(panSkjema);
 
-    SchemaForm.mount({ cfg, store, left: colLeft, mid: colMid, right: colRight, readonly: true });
+    SchemaForm.mount({ cfg, store, left: colLeft, mid: colMid, right: colRight, readonly: true, grade });
 
     // bonus panel
     const panBonus = el("div", { class: "hidden" }, []);
@@ -1249,7 +1274,8 @@
         get:  (qid) => pBonus[qid] || "",
         set:  () => {},
         readonly: true,
-        showPoints: true
+        showPoints: true,
+        grade: (qid) => grade(`b${qid}`)
       });
       panBonus.appendChild(bonusWrap);
       body.appendChild(panBonus);
