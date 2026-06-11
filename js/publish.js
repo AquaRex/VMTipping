@@ -43,21 +43,42 @@
     }
   }
 
+  /* Count how many knockout matches still lack a picked winner. */
+  function bracketStatus() {
+    const B = (App._config && App._config.knockoutBracket) || null;
+    const winners = (Draft.bracket && Draft.bracket.winners) || {};
+    if (!B || !B.rounds) return { total: 0, missing: 0 };
+    let total = 0, filled = 0;
+    B.rounds.forEach((r) => (r.matchIds || []).forEach((mid) => {
+      total++;
+      if (winners[mid]) filled++;
+    }));
+    return { total, missing: total - filled };
+  }
+
   window.publishDraft = function () {
     if (Draft.locked) return;
+    const ko = bracketStatus();
+    const warnHtml = ko.missing > 0
+      ? `<div style="background:rgba(245,197,24,.14);border:1px solid rgba(245,197,24,.4);color:var(--gold);border-radius:9px;padding:.7rem .9rem;margin:0 0 1.2rem;font-size:.9rem;line-height:1.4;text-align:left">
+           ⚠ Du har ikke fylt ut hele sluttspillet (${ko.missing} av ${ko.total} kamper mangler vinner).
+           Du kan fortsatt publisere, men de uutfylte sluttspillkampene gir 0 poeng.
+         </div>`
+      : "";
     // Show confirmation modal before locking forever
     const modal = document.createElement("div");
     modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999";
     modal.innerHTML = `
       <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:2rem;max-width:420px;width:90%;text-align:center">
         <h2 style="margin:0 0 .8rem">Publiser svarene dine?</h2>
+        ${warnHtml}
         <p style="color:var(--muted);margin:0 0 1.5rem;line-height:1.5">
           Når du publiserer låses skjemaet for alltid.<br>
           Du kan ikke endre noe etterpå.
         </p>
         <div style="display:flex;gap:.8rem;justify-content:center">
           <button id="pub-cancel" class="btn btn-ghost">Avbryt</button>
-          <button id="pub-confirm" class="btn btn-primary">Ja, publiser og lås</button>
+          <button id="pub-confirm" class="btn btn-primary">${ko.missing > 0 ? "Publiser likevel" : "Ja, publiser og lås"}</button>
         </div>
       </div>`;
     document.body.appendChild(modal);

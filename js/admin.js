@@ -167,7 +167,7 @@
     pane.innerHTML = "";
     const card = el("div", { class: "card" }, []);
     card.appendChild(el("h2", {}, ["Deltakere"]));
-    card.appendChild(el("p", { class: "sub" }, ["Rediger gruppe direkte i tabellen og trykk Enter eller klikk bort for å lagre. Klikk «Rett» for å se og rette svarene."]));
+    card.appendChild(el("p", { class: "sub" }, ["Rediger navn og gruppe direkte i tabellen og trykk Enter eller klikk bort for å lagre. Klikk «Rett» for å se og rette svarene."]));
     if (!entries.length) {
       card.appendChild(el("p", { class: "muted" }, ["Ingen skjema er publisert ennå."]));
     } else {
@@ -178,9 +178,28 @@
         const tr = el("tr", {}, []);
         const when = en.created_at ? new Date(en.created_at).toLocaleString("no-NO") : "";
 
-        // name cell
+        // name editable cell
         const nameTd = el("td", {}, []);
-        nameTd.textContent = en.name;
+        const nameIn = el("input", {
+          type: "text", value: en.name || "",
+          placeholder: "Navn",
+          style: "width:100%;background:transparent;border:1px solid transparent;border-radius:4px;padding:.2rem .3rem;color:inherit;font-weight:600"
+        }, []);
+        nameIn.addEventListener("focus", () => nameIn.style.borderColor = "var(--accent)");
+        const saveName = async () => {
+          nameIn.style.borderColor = "transparent";
+          const val = nameIn.value.trim();
+          if (val === (en.name || "")) return;
+          if (!val) { nameIn.value = en.name || ""; return; } // don't allow blank
+          const old = en.name;
+          en.name = val;
+          await DB.updateEntry(en.id, { name: val });
+          renderBoard(); // refresh leaderboard
+          App.toast(`«${old}» omdøpt til «${val}».`, "success");
+        };
+        nameIn.addEventListener("blur", saveName);
+        nameIn.addEventListener("keydown", (e) => { if (e.key === "Enter") nameIn.blur(); });
+        nameTd.appendChild(nameIn);
         tr.appendChild(nameTd);
 
         // gruppe editable cell

@@ -55,9 +55,10 @@ body {
 .col-left { flex: 0 0 420px; max-width: 420px; min-width: 0; }
 .col-mid { flex: 0 0 380px; max-width: 380px; min-width: 0; }
 .col-right { flex: 1 1 600px; min-width: 0; }
-/* Tabeller + Sluttspill follow the screen while the (long) group list scrolls. */
+/* Tabeller + Sluttspill follow the screen while the (long) group list scrolls.
+   top clears the sticky #nav bar (~3rem) so their headings aren't hidden under it. */
 .col-mid, .col-right {
-  position: sticky; top: 1rem; align-self: flex-start;
+  position: sticky; top: 4rem; align-self: flex-start;
 }
 /* medium screens: bracket drops to its own full-width row below the two lists */
 @media (max-width: 1400px) {
