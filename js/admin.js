@@ -227,11 +227,21 @@
         const ptsTd = el("td", {}, [el("b", {}, [String(en.total || 0)])]);
         tr.appendChild(ptsTd);
         const whenTd = el("td", { class: "muted" }, [when]);
+        // admin-edit indicator
+        const log = (en.predictions && Array.isArray(en.predictions.editLog)) ? en.predictions.editLog : [];
+        if (log.length) {
+          const last = new Date(log[log.length - 1]).toLocaleString("no-NO");
+          const tag = el("div", { style: "margin-top:.2rem;font-size:.75rem;color:var(--gold)", title: `Sist redigert av admin: ${last}` },
+            [`✎ Redigert${log.length > 1 ? " ×" + log.length : ""} · ${last}`]);
+          whenTd.appendChild(tag);
+        }
         tr.appendChild(whenTd);
 
         const td = el("td", {}, []);
         const view = el("button", { class: "btn btn-sm" }, ["Vis skjema"]);
         view.addEventListener("click", () => viewEntry(en.id));
+        const edit = el("button", { class: "btn btn-sm", style: "margin-left:.4rem" }, ["Rediger"]);
+        edit.addEventListener("click", () => editEntry(en.id));
         const open = el("button", { class: "btn btn-sm", style: "margin-left:.4rem" }, ["Rett"]);
         open.addEventListener("click", () => openEntry(en.id));
         const del = el("button", { class: "btn btn-sm btn-danger", style: "margin-left:.4rem" }, ["Slett"]);
@@ -240,7 +250,7 @@
             await DB.deleteEntry(en.id); App.toast("Slettet.", "success"); reloadEntries();
           }
         });
-        td.appendChild(view); td.appendChild(open); td.appendChild(del); tr.appendChild(td);
+        td.appendChild(view); td.appendChild(edit); td.appendChild(open); td.appendChild(del); tr.appendChild(td);
         tb.appendChild(tr);
       });
       tbl.appendChild(tb);
@@ -1312,5 +1322,110 @@
     const closeBtn = el("button", { class: "btn" }, ["Lukk"]);
     closeBtn.addEventListener("click", closeModal);
     showModal(en.name, body, [closeBtn], { full: true });
+  }
+
+  /* Edit a participant's actual predictions (group scores, bracket winners,
+   * bonus answers) exactly as they filled them in. Saves back to the DB. */
+  function editEntry(id) {
+    const en = entries.find((e) => e.id === id);
+    if (!en) return;
+    // work on a deep copy so "Avbryt" discards changes
+    const work = JSON.parse(JSON.stringify(en.predictions || {}));
+    work.matches = work.matches || {};
+    work.bracket = work.bracket || {};
+    work.bracket.winners = work.bracket.winners || {};
+    work.bracket.slots = work.bracket.slots || {};
+    work.bonus = work.bonus || {};
+    work.knockout = work.knockout || {};
+
+    const store = {
+      getMatch:  (mid) => work.matches[mid] || {},
+      setMatch:  (mid, h, a) => { if (h === "" && a === "") delete work.matches[mid]; else work.matches[mid] = { h, a }; },
+      getWinner: (mid) => work.bracket.winners[mid] || "",
+      setWinner: (mid, team) => { if (!team) delete work.bracket.winners[mid]; else work.bracket.winners[mid] = team; },
+      setRounds: (map) => { work.knockout = map; }
+    };
+
+    const body = el("div", {}, []);
+
+    // editable name
+    const nameRow = el("div", { class: "btn-row", style: "margin-bottom:1rem" }, []);
+    nameRow.appendChild(el("label", { style: "align-self:center;font-weight:700" }, ["Navn:"]));
+    const nameIn = el("input", { type: "text", value: en.name, style: "flex:1" }, []);
+    nameRow.appendChild(nameIn);
+    body.appendChild(nameRow);
+
+    // prior admin edits, if any
+    const priorLog = (work.editLog && Array.isArray(work.editLog)) ? work.editLog : [];
+    if (priorLog.length) {
+      const last = new Date(priorLog[priorLog.length - 1]).toLocaleString("no-NO");
+      body.appendChild(el("div", { class: "muted", style: "margin:-.5rem 0 1rem;font-size:.8rem;color:var(--gold)" }, [
+        `✎ Tidligere redigert av admin ${priorLog.length} gang(er). Sist: ${last}.`
+      ]));
+    }
+
+    // tabs
+    const tabBar = el("div", { class: "nav-links", style: "margin-bottom:1.2rem" }, []);
+    const tabSkjema = el("a", { href: "#", class: "active" }, ["Tippeskjema"]);
+    const tabBonus  = el("a", { href: "#" }, ["Bonusspørsmål"]);
+    tabBar.appendChild(tabSkjema);
+    if (cfg.bonus && cfg.bonus.questions && cfg.bonus.questions.length) tabBar.appendChild(tabBonus);
+    body.appendChild(tabBar);
+
+    // tippeskjema panel (editable)
+    const panSkjema = el("div", {}, []);
+    const layout = el("div", { class: "layout" }, []);
+    const colLeft  = el("div", { class: "col-left" }, []);
+    const colMid   = el("div", { class: "col-mid" }, []);
+    const colRight = el("div", { class: "col-right" }, []);
+    layout.appendChild(colLeft); layout.appendChild(colMid); layout.appendChild(colRight);
+    panSkjema.appendChild(layout);
+    body.appendChild(panSkjema);
+
+    SchemaForm.mount({ cfg, store, left: colLeft, mid: colMid, right: colRight, readonly: false });
+
+    // bonus panel (editable)
+    const panBonus = el("div", { class: "hidden" }, []);
+    if (cfg.bonus && cfg.bonus.questions && cfg.bonus.questions.length) {
+      const bonusWrap = el("div", { class: "wrap", style: "padding-top:0;padding-bottom:0" }, []);
+      BonusForm.render(bonusWrap, {
+        cfg,
+        get:  (qid) => work.bonus[qid] || "",
+        set:  (qid, v) => { if (v == null || v === "") delete work.bonus[qid]; else work.bonus[qid] = v; },
+        readonly: false,
+        showPoints: true
+      });
+      panBonus.appendChild(bonusWrap);
+      body.appendChild(panBonus);
+    }
+
+    function switchTab(t) {
+      tabSkjema.classList.toggle("active", t === "skjema");
+      tabBonus.classList.toggle("active",  t === "bonus");
+      panSkjema.classList.toggle("hidden", t !== "skjema");
+      panBonus.classList.toggle("hidden",  t !== "bonus");
+    }
+    tabSkjema.addEventListener("click", (e) => { e.preventDefault(); switchTab("skjema"); });
+    tabBonus.addEventListener("click",  (e) => { e.preventDefault(); switchTab("bonus"); });
+
+    const cancelBtn = el("button", { class: "btn btn-ghost" }, ["Avbryt"]);
+    cancelBtn.addEventListener("click", closeModal);
+    const saveBtn = el("button", { class: "btn btn-primary" }, ["💾 Lagre endringer"]);
+    saveBtn.addEventListener("click", async () => {
+      // log this admin edit inside the predictions JSON so we can see it was edited
+      work.editLog = Array.isArray(work.editLog) ? work.editLog : [];
+      work.editLog.push(new Date().toISOString());
+      en.predictions = work;
+      en.name = nameIn.value.trim() || en.name;
+      // re-grade against the current fasit so the leaderboard total reflects edits
+      const total = Scoring.totalFor(cfg, answerKey, en);
+      en.total = total;
+      await DB.updateEntry(en.id, { name: en.name, predictions: work, total });
+      App.toast("Endringer lagret.", "success");
+      closeModal();
+      reloadEntries();
+    });
+
+    showModal("Rediger: " + en.name, body, [cancelBtn, saveBtn], { full: true });
   }
 })();
