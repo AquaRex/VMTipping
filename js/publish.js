@@ -56,8 +56,61 @@
     return { total, missing: total - filled };
   }
 
+  /* Count how many bonus questions are still unanswered. */
+  function bonusStatus() {
+    const qs = (App._config && App._config.bonus && App._config.bonus.questions) || [];
+    const ans = (Draft.bonus) || {};
+    let missing = 0, firstMissing = null;
+    qs.forEach((q) => {
+      const v = ans[q.id];
+      if (v == null || v === "") { missing++; if (!firstMissing) firstMissing = q; }
+    });
+    return { total: qs.length, missing, firstMissing };
+  }
+
   window.publishDraft = function () {
     if (Draft.locked) return;
+
+    // Bonus questions are mandatory — block publish until all are answered.
+    const bonus = bonusStatus();
+    if (bonus.missing > 0) {
+      const modal = document.createElement("div");
+      modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999";
+      modal.innerHTML = `
+        <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:2rem;max-width:420px;width:90%;text-align:center">
+          <h2 style="margin:0 0 .8rem">Du må svare på alle bonusspørsmål</h2>
+          <p style="color:var(--muted);margin:0 0 1.5rem;line-height:1.5">
+            ${bonus.missing} av ${bonus.total} bonusspørsmål er ikke besvart.<br>
+            Du må svare på alle før du kan publisere.
+          </p>
+          <div style="display:flex;gap:.8rem;justify-content:center">
+            <button id="pub-goanswer" class="btn btn-primary">Gå til ubesvart spørsmål</button>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      document.getElementById("pub-goanswer").addEventListener("click", () => {
+        modal.remove();
+        // On the bonus page, scroll to (and flash) the first unanswered question.
+        const onBonusPage = !!document.querySelector("#content .q");
+        if (bonus.firstMissing && onBonusPage) {
+          let target = null;
+          document.querySelectorAll("#content .q").forEach((eln) => {
+            const t = eln.querySelector(".qtext");
+            if (!target && t && t.textContent.includes(bonus.firstMissing.text)) target = eln;
+          });
+          if (target) {
+            target.scrollIntoView({ behavior: "smooth", block: "center" });
+            target.classList.add("flash");
+            setTimeout(() => target.classList.remove("flash"), 1600);
+          }
+        } else {
+          // on the tippeskjema page — send them to the bonus page to finish
+          location.href = "bonus.html";
+        }
+      });
+      return;
+    }
+
     const ko = bracketStatus();
     const warnHtml = ko.missing > 0
       ? `<div style="background:rgba(245,197,24,.14);border:1px solid rgba(245,197,24,.4);color:var(--gold);border-radius:9px;padding:.7rem .9rem;margin:0 0 1.2rem;font-size:.9rem;line-height:1.4;text-align:left">

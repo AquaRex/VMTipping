@@ -64,13 +64,17 @@ body {
 @media (max-width: 1400px) {
   .col-right { flex: 1 1 100%; order: 3; position: static; }
 }
-/* small screens: prevent column stacking — page scrolls horizontally as a canvas */
+/* phones/tablets: stack the three columns vertically and full-width so you just
+   scroll DOWN to reach Gruppespill → Tabeller → Sluttspill (no sideways scroll). */
 @media (max-width: 900px) {
-  html, body { overflow-x: auto; }
-  .layout { flex-wrap: nowrap; }
-  .col-left { flex: 0 0 420px; }
-  .col-mid { flex: 0 0 380px; position: static; }
-  .col-right { flex: 0 0 700px; order: 0; position: static; }
+  .layout { flex-direction: column; flex-wrap: nowrap; gap: 1rem; }
+  .col-left, .col-mid, .col-right {
+    flex: 1 1 auto; width: 100%; max-width: 100%;
+    position: static; top: auto;
+  }
+  .col-left { order: 1; }
+  .col-mid  { order: 2; }
+  .col-right { order: 3; }
 }
 .page-head { margin: .4rem 0 1.4rem; }
 .page-head h1 { margin: 0 0 .3rem; font-size: 1.7rem; }
@@ -326,8 +330,13 @@ select.btn-select {
 .winchk:disabled { opacity: .3; cursor: default; }
 
 /* ---------- bonus questions ---------- */
-.q { padding: .7rem .2rem; border-bottom: 1px solid var(--line); }
+.q { padding: .7rem .2rem; border-bottom: 1px solid var(--line); border-radius: 8px; }
 .q:last-child { border-bottom: none; }
+.q.flash { animation: q-flash 1.6s ease-out; }
+@keyframes q-flash {
+  0%, 30% { background: rgba(245,197,24,.22); box-shadow: 0 0 0 2px rgba(245,197,24,.45) inset; }
+  100% { background: transparent; box-shadow: none; }
+}
 .q .qtext { font-weight: 600; margin-bottom: .45rem; }
 .q .qtext .qpts { color: var(--gold); font-weight: 700; font-size: .8rem; margin-left: .4rem; }
 .duel, .yesno { display: flex; gap: .6rem; flex-wrap: wrap; }

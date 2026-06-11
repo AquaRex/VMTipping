@@ -120,14 +120,6 @@
         e.preventDefault();
         setNum(getNum() + (e.deltaY < 0 ? 1 : -1));
       }, { passive: false });
-      let startY = null, startVal = 0;
-      input.addEventListener("touchstart", (e) => { startY = e.touches[0].clientY; startVal = getNum(); }, { passive: true });
-      input.addEventListener("touchmove", (e) => {
-        if (startY == null) return;
-        const dy = startY - e.touches[0].clientY;
-        if (Math.abs(dy) > 6) { e.preventDefault(); setNum(startVal + Math.round(dy / 12)); }
-      }, { passive: false });
-      input.addEventListener("touchend", () => { startY = null; });
       return input;
     }
 
