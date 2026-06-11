@@ -19,7 +19,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; overflow-x: auto; }
+html, body { margin: 0; padding: 0; }
 body {
   background: linear-gradient(180deg, var(--bg), var(--bg-2)) fixed;
   color: var(--text);
@@ -55,16 +55,21 @@ body {
 .col-left { flex: 0 0 420px; max-width: 420px; min-width: 0; }
 .col-mid { flex: 0 0 380px; max-width: 380px; min-width: 0; }
 .col-right { flex: 1 1 600px; min-width: 0; }
+/* Tabeller + Sluttspill follow the screen while the (long) group list scrolls. */
+.col-mid, .col-right {
+  position: sticky; top: 1rem; align-self: flex-start;
+}
 /* medium screens: bracket drops to its own full-width row below the two lists */
 @media (max-width: 1400px) {
-  .col-right { flex: 1 1 100%; order: 3; }
+  .col-right { flex: 1 1 100%; order: 3; position: static; }
 }
 /* small screens: prevent column stacking — page scrolls horizontally as a canvas */
 @media (max-width: 900px) {
+  html, body { overflow-x: auto; }
   .layout { flex-wrap: nowrap; }
   .col-left { flex: 0 0 420px; }
-  .col-mid { flex: 0 0 380px; }
-  .col-right { flex: 0 0 700px; order: 0; }
+  .col-mid { flex: 0 0 380px; position: static; }
+  .col-right { flex: 0 0 700px; order: 0; position: static; }
 }
 .page-head { margin: .4rem 0 1.4rem; }
 .page-head h1 { margin: 0 0 .3rem; font-size: 1.7rem; }
