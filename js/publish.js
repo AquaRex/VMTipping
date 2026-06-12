@@ -13,29 +13,24 @@
     }
     const predictions = Draft.data.predictions;
     try {
-      let saved;
-      if (Draft.data.publishedId) {
-        // already published before — just update in place, no dedup needed
-        saved = await DB.updateEntry(Draft.data.publishedId, { name, predictions });
+      // ALWAYS create a new entry — never overwrite an existing one. If the name
+      // is taken, suffix it ("Thomas" → "Thomas 2"). This stops anyone from
+      // re-publishing over an earlier submission to change answers after matches.
+      const existing = await DB.listEntries();
+      const takenNames = new Set(existing.map(e => (e.name || "").toLowerCase()));
+      let finalName = name;
+      if (takenNames.has(name.toLowerCase())) {
+        let n = 2;
+        while (takenNames.has((name + " " + n).toLowerCase())) n++;
+        finalName = name + " " + n;
       }
-      if (!saved) {
-        // first publish — check for name collisions and suffix if needed
-        const existing = await DB.listEntries();
-        const takenNames = new Set(existing.map(e => (e.name || "").toLowerCase()));
-        let finalName = name;
-        if (takenNames.has(name.toLowerCase())) {
-          let n = 2;
-          while (takenNames.has((name + " " + n).toLowerCase())) n++;
-          finalName = name + " " + n;
-        }
-        // update the draft name so the locked view shows the actual stored name
-        Draft.setName(finalName);
-        saved = await DB.createEntry({ name: finalName, predictions });
-        Draft.data.publishedId = saved.id;
-        Draft.save();
-      }
+      // store the actual saved name so the locked view shows it
+      Draft.setName(finalName);
+      const saved = await DB.createEntry({ name: finalName, predictions });
+      Draft.data.publishedId = saved.id;
+      Draft.save();
       Draft.lock();
-      App.toast("Publisert og låst! Svarene dine er lagret. ✅", "success");
+      App.toast(`Publisert og låst som «${finalName}»! ✅`, "success");
       location.reload();
     } catch (e) {
       console.error(e);
